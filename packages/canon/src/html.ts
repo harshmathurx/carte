@@ -30,16 +30,35 @@ const HTML_KEEP = new Set([
   'main', 'section', 'article', 'aside', 'header', 'footer', 'address', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
   'p', 'div', 'span', 'br', 'hr', 'blockquote', 'q', 'cite', 'em', 'strong', 'b', 'i', 'u', 's', 'small', 'mark',
   'sub', 'sup', 'abbr', 'time', 'ul', 'ol', 'li', 'dl', 'dt', 'dd', 'img', 'picture', 'source', 'figure', 'figcaption',
+  // Layout and text with no capability (plan v3 §11): tables, preformatted and code text, edits, bidi.
+  'table', 'caption', 'colgroup', 'col', 'thead', 'tbody', 'tfoot', 'tr', 'td', 'th',
+  'pre', 'code', 'kbd', 'samp', 'var', 'del', 'ins', 'bdi', 'bdo', 'wbr',
+  // More layout and text with no capability (D51): <label> has no control left to point at.
+  'nav', 'hgroup', 'menu', 'ruby', 'rt', 'rp', 'dfn', 'data', 'label',
 ]);
-const HTML_VOID = new Set(['br', 'hr', 'img', 'source']);
+/** Controls that only draw: kept as a span with their text, the capability (input) gone. */
+const HTML_TO_SPAN = new Set(['button', 'progress', 'meter']);
+/** Obsolete names for kept elements, renamed so their structure survives instead of unwrapping. */
+const HTML_RENAME: Record<string, string> = { dir: 'ul' };
+/** Elements a custom element may sit in only as a span: a block there would close the <p> on the next read. */
+const PHRASING = new Set([
+  'p', 'span', 'em', 'strong', 'b', 'i', 'u', 's', 'small', 'mark', 'sub', 'sup', 'abbr', 'time', 'q', 'cite',
+  'code', 'kbd', 'samp', 'var', 'bdi', 'bdo', 'dfn', 'data', 'label', 'ruby', 'rt', 'rp',
+  'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+]);
+/** Recursion guard for unwrapped wrappers, which add no output depth but still nest the walk. */
+const MAX_WALK_DEPTH = 512;
+const HTML_VOID = new Set(['br', 'hr', 'img', 'source', 'col', 'wbr']);
+const PRESERVE_WS = new Set(['pre']);
+const PROOF_FONTS_RE = /^https:\/\/fonts\.googleapis\.com\//i;
 const HTML_DROP: Record<string, string> = {
   script: 'element.script', noscript: 'element.script', template: 'element.dropped',
   iframe: 'element.iframe', frame: 'element.iframe', frameset: 'element.iframe', object: 'element.iframe',
   embed: 'element.iframe', applet: 'element.iframe', param: 'element.iframe', portal: 'element.iframe',
-  form: 'element.form', input: 'element.form', button: 'element.form', select: 'element.form',
+  form: 'element.form', input: 'element.form', select: 'element.form',
   option: 'element.form', optgroup: 'element.form', textarea: 'element.form', output: 'element.form',
-  fieldset: 'element.form', legend: 'element.form', datalist: 'element.form', progress: 'element.form',
-  meter: 'element.form', canvas: 'element.dropped', audio: 'element.media', video: 'element.media',
+  fieldset: 'element.form', legend: 'element.form', datalist: 'element.form',
+  canvas: 'element.dropped', audio: 'element.media', video: 'element.media',
   track: 'element.media', map: 'element.dropped', area: 'element.dropped', base: 'element.base',
   link: 'element.link', dialog: 'element.dropped', slot: 'element.dropped', math: 'element.foreign',
   xmp: 'element.dropped', plaintext: 'element.dropped', listing: 'element.dropped', noembed: 'element.dropped',
@@ -47,7 +66,7 @@ const HTML_DROP: Record<string, string> = {
 };
 
 const SVG_KEEP = new Set([
-  'svg', 'g', 'defs', 'symbol', 'title', 'desc', 'path', 'rect', 'circle', 'ellipse', 'line', 'polyline', 'polygon',
+  'svg', 'g', 'defs', 'symbol', 'use', 'title', 'desc', 'path', 'rect', 'circle', 'ellipse', 'line', 'polyline', 'polygon',
   'text', 'tspan', 'textPath', 'linearGradient', 'radialGradient', 'stop', 'pattern', 'clipPath', 'mask', 'marker',
   'filter', 'feBlend', 'feColorMatrix', 'feComponentTransfer', 'feComposite', 'feConvolveMatrix',
   'feDiffuseLighting', 'feDisplacementMap', 'feDistantLight', 'feDropShadow', 'feFlood', 'feFuncA', 'feFuncB',
@@ -73,6 +92,17 @@ const SVG_ATTRS = new Set([
   'elevation', 'pointsAtX', 'pointsAtY', 'pointsAtZ', 'limitingConeAngle', 'z', 'mix-blend-mode',
 ]);
 
+/** Functions an SVG presentation attribute may call. Each is pure appearance and takes no string; anything
+ * else (image-set, cross-fade, element, paint, attr, src …) could carry a URL past the filter. */
+const SVG_ATTR_FUNCTIONS = new Set([
+  'url', 'var', 'calc', 'min', 'max', 'clamp',
+  'rgb', 'rgba', 'hsl', 'hsla', 'hwb', 'lab', 'lch', 'oklab', 'oklch', 'color', 'color-mix', 'light-dark',
+  'matrix', 'translate', 'translatex', 'translatey', 'scale', 'scalex', 'scaley', 'rotate', 'skewx', 'skewy',
+  'blur', 'brightness', 'contrast', 'drop-shadow', 'grayscale', 'hue-rotate', 'invert', 'opacity', 'saturate', 'sepia',
+  // basic shapes (clip-path, shape-outside): geometry only, no URL and no string (so not path())
+  'circle', 'ellipse', 'inset', 'polygon', 'rect', 'xywh',
+]);
+
 const COLOR_RE = /^(?:#[0-9a-f]{3,8}|[a-z]{3,24}|(?:rgb|rgba|hsl|hsla|hwb|lab|lch|oklab|oklch)\([0-9a-z.,%\s/+-]{1,64}\))$/i;
 const LANG_RE = /^[a-z]{1,8}(?:-[a-z0-9]{1,8})*$/i;
 const PHONE_RE = /(?:\+\d[\d ().-]{7,}\d)|(?:\(?\b\d{3}\)?[ .-]\d{3}[ .-]\d{4}\b)/;
@@ -92,19 +122,24 @@ interface Ctx {
   css: CssContext;
   imageMap: Record<string, string>;
   styles: string[];
-  meta: { orientation?: 'landscape' | 'portrait'; finish?: Finish; finishMask?: string; background?: string };
+  meta: { orientation?: 'landscape' | 'portrait'; finish?: Finish; finishMask?: string; background?: string; summary?: string };
   title?: string;
+  /** Open <p> elements around the node being walked (a block inside one would close it on the next read). */
+  pDepth: number;
 }
 
 function utf8Length(s: string): number {
   return new TextEncoder().encode(s).length;
 }
 
+/** All text under a node, in document order. Iterative: an SVG <style> can hold any depth of elements. */
 function textOf(node: PParent): string {
   let s = '';
-  for (const c of node.childNodes) {
+  const stack: PNode[] = [...node.childNodes].reverse();
+  while (stack.length) {
+    const c = stack.pop() as PNode;
     if (c.nodeName === '#text') s += (c as DefaultTreeAdapterMap['textNode']).value;
-    else if ('childNodes' in c) s += textOf(c as PParent);
+    else if ('childNodes' in c) for (let i = c.childNodes.length - 1; i >= 0; i--) stack.push(c.childNodes[i] as PNode);
   }
   return s;
 }
@@ -189,12 +224,10 @@ function globalAttr(ctx: Ctx, name: string, value: string): string | null | unde
   if (name === 'role') return /^[a-z]{2,24}(?: [a-z]{2,24}){0,3}$/.test(value) ? value : null;
   if (name.startsWith('aria-')) return /^aria-[a-z]{1,40}$/.test(name) && value.length <= 512 ? value : null;
   if (name.startsWith('data-')) {
-    if (name === 'data-face') {
-      ctx.reporter.removed('attr.data_face');
-      return null;
-    }
+    // data-face is settled after the walk (a proof sheet's two sections keep it; nothing else does).
     return /^data-[a-z0-9-]{1,40}$/.test(name) && value.length <= 512 ? value : null;
   }
+  if (name === 'hidden') return value.toLowerCase() === 'until-found' ? 'until-found' : '';
   if (name === 'id') {
     const id = validId(value);
     if (!id) ctx.reporter.removed('attr.id_invalid', value);
@@ -218,10 +251,20 @@ function htmlAttrs(ctx: Ctx, el: PElement, outName: string, parentName: string):
       ctx.reporter.removed('attr.handler', name);
       continue;
     }
+    // The two faces of a proof sheet: data-face="front"|"back" on a <section> straight in <body>.
+    if (name === 'data-face' && outName === 'section' && parentName === 'body' && (value === 'front' || value === 'back')) {
+      seen.add(name);
+      out.push([name, value]);
+      continue;
+    }
     let v: string | null | undefined = globalAttr(ctx, name, value);
     if (v === undefined) {
       v = null;
-      if (outName === 'img') {
+      if ((outName === 'td' || outName === 'th') && (name === 'colspan' || name === 'rowspan')) v = /^\d{1,3}$/.test(value) ? value : null;
+      else if ((outName === 'col' || outName === 'colgroup') && name === 'span') v = /^\d{1,3}$/.test(value) ? value : null;
+      else if (outName === 'th' && name === 'scope') v = /^(?:row|col|rowgroup|colgroup)$/.test(value) ? value : null;
+      else if (outName === 'bdo' && name === 'dir') v = value === 'ltr' || value === 'rtl' ? value : null;
+      else if (outName === 'img') {
         if (name === 'src') v = imageUrl(ctx, value);
         else if (name === 'srcset') v = sanitizeSrcset(ctx, value);
         else if (name === 'alt') v = value.length <= 512 ? value : value.slice(0, 512);
@@ -237,6 +280,7 @@ function htmlAttrs(ctx: Ctx, el: PElement, outName: string, parentName: string):
         else if (name === 'reversed') v = '';
         else if (name === 'type') v = /^[1aAiI]$/.test(value) ? value : null;
       } else if (outName === 'li' && name === 'value') v = /^-?\d{1,6}$/.test(value) ? value : null;
+      else if (outName === 'data' && name === 'value') v = value.length <= 512 ? value : null;
       else if (outName === 'time' && name === 'datetime') v = /^[0-9T:+\-Z. ]{1,64}$/.test(value) ? value : null;
       if (v === null && !['src', 'srcset'].includes(name)) {
         ctx.reporter.removed(name === 'href' ? 'attr.href' : 'attr.dropped', name);
@@ -255,8 +299,17 @@ function svgUrlRefs(value: string): string | null {
     const p = validId(id);
     return p ? `url(#${p})` : '\u0000';
   });
-  if (replaced.includes('\u0000') || /url\s*\(/i.test(replaced.replace(/url\(#[a-z][a-z0-9-]{0,31}\)/g, ''))) return null;
+  if (replaced.includes('\u0000') || /url\s*\(/i.test(replaced.replace(/url\(#[A-Za-z_][A-Za-z0-9_-]{0,63}\)/g, ''))) return null;
   return replaced;
+}
+
+/** True when every function in a presentation attribute value is on the allowlist. */
+function svgFunctionsAllowed(value: string): boolean {
+  for (const m of value.toLowerCase().matchAll(/([^\s(),'"/*+]*)\s*\(/g)) {
+    const fn = m[1] ?? '';
+    if (fn !== '' && !SVG_ATTR_FUNCTIONS.has(fn)) return false;
+  }
+  return true;
 }
 
 function svgAttrs(ctx: Ctx, el: PElement, name: string): [string, string][] {
@@ -266,11 +319,12 @@ function svgAttrs(ctx: Ctx, el: PElement, name: string): [string, string][] {
     const isHref = a.name === 'href' && (!a.namespace || a.namespace === XLINK_NS);
     if (isHref) {
       const v = a.value.trim();
-      const id = name === 'textPath' && v.startsWith('#') ? validId(v.slice(1)) : null;
+      // Same-document references only: textPath and use (a symbol or shape drawn again).
+      const id = (name === 'textPath' || name === 'use') && v.startsWith('#') ? validId(v.slice(1)) : null;
       if (id && !seen.has('href')) {
         seen.add('href');
         out.push(['href', '#' + id]);
-      } else ctx.reporter.removed('attr.href', a.value);
+      } else ctx.reporter.removed(name === 'use' ? 'svg.use' : 'attr.href', a.value);
       continue;
     }
     if (a.namespace) {
@@ -287,6 +341,10 @@ function svgAttrs(ctx: Ctx, el: PElement, name: string): [string, string][] {
     if (n === 'id') {
       v = validId(a.value);
       if (!v) ctx.reporter.removed('attr.id_invalid', a.value);
+    } else if (n === 'style') {
+      // Inline styles on SVG elements are CSS like any other: filtered, not dropped (plan v3 §11).
+      v = sanitizeInlineStyle(a.value, ctx.css) || null;
+      if (v === null) continue;
     } else if (n.startsWith('aria-')) {
       v = /^aria-[a-z]{1,40}$/.test(n) && a.value.length <= 512 ? a.value : null;
     } else if (n === 'class') {
@@ -297,6 +355,7 @@ function svgAttrs(ctx: Ctx, el: PElement, name: string): [string, string][] {
       if (a.value.includes('\\')) v = null;
       else if (lower.includes('javascript:') || lower.includes('expression(') || lower.includes('data:')) v = null;
       else if (n === 'd' && a.value.length > 32768) v = null;
+      else if (!svgFunctionsAllowed(a.value)) v = null;
       else v = svgUrlRefs(a.value);
     } else {
       ctx.reporter.removed('attr.dropped', n);
@@ -346,6 +405,13 @@ function handleMeta(ctx: Ctx, el: PElement): void {
       if (COLOR_RE.test(content)) m.background = content.toLowerCase();
       else bad();
       return;
+    case 'scrollodex:summary': {
+      if (m.summary !== undefined) return;
+      const t = content.replace(/[\t\n\f\r ]+/g, ' ').trim();
+      if (t.length >= 1 && t.length <= LIMITS.summaryChars && !/[\u0000-\u001f\u007f]/.test(t)) m.summary = t;
+      else bad();
+      return;
+    }
     default:
       bad();
   }
@@ -353,16 +419,29 @@ function handleMeta(ctx: Ctx, el: PElement): void {
 
 type Mode = 'html' | 'svg' | 'svgtext' | 'textonly';
 
-function walk(ctx: Ctx, parent: PParent, out: ONode[], mode: Mode, parentName: string): void {
+function tooDeep(): CanonError {
+  return new CanonError('budget.depth', `The card nests more than ${LIMITS.depth} levels deep; the limit is ${LIMITS.depth}.`);
+}
+
+/** Walk an element's children into `o`, one output level deeper. */
+function walkInto(ctx: Ctx, el: PElement, o: OElement, mode: Mode, depth: number, raw: number): void {
+  if (depth > LIMITS.depth) throw tooDeep();
+  const isP = o.ns === 'html' && o.name === 'p';
+  if (isP) ctx.pDepth++;
+  walk(ctx, el, o.children, mode, o.name, depth + 1, raw + 1);
+  if (isP) ctx.pDepth--;
+}
+
+/** `depth` is the output depth of the elements `out` receives (1 = straight in <body>); `raw` the walk's own. */
+function walk(ctx: Ctx, parent: PParent, out: ONode[], mode: Mode, parentName: string, depth = 1, raw = 1): void {
+  if (raw > MAX_WALK_DEPTH) throw tooDeep();
   for (const node of parent.childNodes as PNode[]) {
     if (node.nodeName === '#text') {
       out.push({ t: 'text', v: (node as DefaultTreeAdapterMap['textNode']).value });
       continue;
     }
-    if (node.nodeName === '#comment') {
-      ctx.reporter.removed('comment.removed');
-      continue;
-    }
+    // A comment is neither capability nor appearance: it goes without a word.
+    if (node.nodeName === '#comment') continue;
     if (!('tagName' in node)) continue;
     const el = node as PElement;
     if (mode === 'textonly') {
@@ -376,7 +455,9 @@ function walk(ctx: Ctx, parent: PParent, out: ONode[], mode: Mode, parentName: s
       }
       const name = el.tagName;
       if (name === 'style') {
-        ctx.reporter.removed('element.style_in_svg');
+        // Figma and Illustrator exports style their shapes this way (.st0{fill:…}): same filter as any sheet.
+        const css = sanitizeStylesheet(textOf(el), ctx.css);
+        if (css) ctx.styles.push(css);
         continue;
       }
       if (!SVG_KEEP.has(name) || (mode === 'svgtext' && name !== 'tspan' && name !== 'textPath')) {
@@ -385,7 +466,7 @@ function walk(ctx: Ctx, parent: PParent, out: ONode[], mode: Mode, parentName: s
       }
       const o: OElement = { t: 'el', name, ns: 'svg', attrs: svgAttrs(ctx, el, name), children: [] };
       const childMode: Mode = SVG_TEXT.has(name) ? 'svgtext' : name === 'title' || name === 'desc' ? 'textonly' : 'svg';
-      walk(ctx, el, o.children, childMode, name);
+      walkInto(ctx, el, o, childMode, depth, raw);
       out.push(o);
       continue;
     }
@@ -396,7 +477,7 @@ function walk(ctx: Ctx, parent: PParent, out: ONode[], mode: Mode, parentName: s
         continue;
       }
       const o: OElement = { t: 'el', name: 'svg', ns: 'svg', attrs: svgAttrs(ctx, el, 'svg'), children: [] };
-      walk(ctx, el, o.children, 'svg', 'svg');
+      walkInto(ctx, el, o, 'svg', depth, raw);
       out.push(o);
       continue;
     }
@@ -404,11 +485,23 @@ function walk(ctx: Ctx, parent: PParent, out: ONode[], mode: Mode, parentName: s
       ctx.reporter.removed('element.foreign', el.tagName);
       continue;
     }
-    const name = el.tagName;
+    const name = HTML_RENAME[el.tagName] ?? el.tagName;
     if (name === 'style') {
+      if (el.attrs.some((a) => a.name.toLowerCase() === 'data-proof')) {
+        ctx.reporter.warn('proof.style');
+        continue;
+      }
       const css = sanitizeStylesheet(textOf(el), ctx.css);
       if (css) ctx.styles.push(css);
       continue;
+    }
+    if (name === 'link') {
+      const rel = (el.attrs.find((a) => a.name.toLowerCase() === 'rel')?.value ?? '').trim().toLowerCase();
+      const href = (el.attrs.find((a) => a.name.toLowerCase() === 'href')?.value ?? '').trim();
+      if (rel === 'stylesheet' && PROOF_FONTS_RE.test(href)) {
+        ctx.reporter.warn('proof.fonts');
+        continue;
+      }
     }
     if (name === 'meta') {
       handleMeta(ctx, el);
@@ -423,10 +516,11 @@ function walk(ctx: Ctx, parent: PParent, out: ONode[], mode: Mode, parentName: s
       ctx.reporter.removed(drop, name);
       continue;
     }
-    if (name === 'a') {
-      ctx.reporter.rewritten('link.to_span');
+    if (name === 'a' || HTML_TO_SPAN.has(name)) {
+      if (name === 'a') ctx.reporter.rewritten('link.to_span');
+      else ctx.reporter.rewritten('element.unwrapped', name);
       const o: OElement = { t: 'el', name: 'span', ns: 'html', attrs: htmlAttrs(ctx, el, 'span', parentName), children: [] };
-      walk(ctx, el, o.children, 'html', 'span');
+      walkInto(ctx, el, o, 'html', depth, raw);
       out.push(o);
       continue;
     }
@@ -435,15 +529,27 @@ function walk(ctx: Ctx, parent: PParent, out: ONode[], mode: Mode, parentName: s
       continue;
     }
     if (HTML_KEEP.has(name)) {
-      const o: OElement = { t: 'el', name, ns: 'html', attrs: htmlAttrs(ctx, el, name, parentName), children: [] };
+      // An unwrapped list container can leave <li> straight in <li>, which the next read would split apart.
+      const outName = name === 'li' && parentName === 'li' ? 'div' : name;
+      if (outName !== name) ctx.reporter.rewritten('element.unwrapped', name);
+      const o: OElement = { t: 'el', name: outName, ns: 'html', attrs: htmlAttrs(ctx, el, outName, parentName), children: [] };
       if ((name === 'img' || name === 'source') && !o.attrs.some(([k]) => k === 'src' || k === 'srcset')) continue;
-      if (!HTML_VOID.has(name)) walk(ctx, el, o.children, 'html', name);
+      if (!HTML_VOID.has(name)) walkInto(ctx, el, o, 'html', depth, raw);
+      out.push(o);
+      continue;
+    }
+    if (name.includes('-') && /^[a-z][a-z0-9]*(?:-[a-z0-9]+)+$/.test(name)) {
+      // A custom element is a div with a name nobody defined (a span in running text): its attributes stay.
+      ctx.reporter.rewritten('element.custom', name);
+      const as = ctx.pDepth > 0 || PHRASING.has(parentName) ? 'span' : 'div';
+      const o: OElement = { t: 'el', name: as, ns: 'html', attrs: htmlAttrs(ctx, el, as, parentName), children: [] };
+      walkInto(ctx, el, o, 'html', depth, raw);
       out.push(o);
       continue;
     }
     // unknown / unwrap-listed: keep children, lose the element
     ctx.reporter.rewritten('element.unwrapped', name);
-    walk(ctx, el, out, 'html', parentName);
+    walk(ctx, el, out, 'html', parentName, depth, raw + 1);
   }
 }
 
@@ -462,7 +568,7 @@ function minify(children: ONode[], preserve: boolean): ONode[] {
   const out: ONode[] = [];
   for (const c of merged) {
     if (c.t === 'el') {
-      c.children = minify(c.children, preserve || (c.ns === 'svg' && SVG_TEXT.has(c.name)));
+      c.children = minify(c.children, preserve || (c.ns === 'svg' && SVG_TEXT.has(c.name)) || (c.ns === 'html' && PRESERVE_WS.has(c.name)));
       out.push(c);
       continue;
     }
@@ -500,6 +606,9 @@ function serializeNodes(nodes: ONode[]): string {
     for (const [k, v] of n.attrs) s += ` ${k}="${escAttrValue(k, v)}"`;
     s += '>';
     if (n.ns === 'html' && HTML_VOID.has(n.name)) continue;
+    // The parser drops one newline straight after <pre>; write one more so a leading newline survives.
+    const first = n.children[0];
+    if (n.ns === 'html' && n.name === 'pre' && first?.t === 'text' && first.v.startsWith('\n')) s += '\n';
     s += serializeNodes(n.children) + `</${n.name}>`;
   }
   return s;
@@ -528,7 +637,7 @@ function core(input: string, imageMap: Record<string, string>): CoreResult {
   if (typeof input !== 'string') throw new CanonError('html.not_string', 'card.html must be a string');
   const bytesIn = utf8Length(input);
   if (bytesIn > LIMITS.htmlUploadBytes) {
-    throw new CanonError('html.too_large', `card.html is ${(bytesIn / 1024).toFixed(1)} KB; the limit is 50 KB.`);
+    throw new CanonError('html.too_large', `card.html is ${(bytesIn / 1024).toFixed(1)} KB; the limit is ${LIMITS.htmlUploadBytes / 1024} KB.`);
   }
   const src = input.charCodeAt(0) === 0xfeff ? input.slice(1) : input;
   const reporter = new Reporter();
@@ -541,8 +650,11 @@ function core(input: string, imageMap: Record<string, string>): CoreResult {
     fonts: new Set(),
     counts: { keyframes: 0, filters: 0 },
   };
-  const ctx: Ctx = { reporter, css, imageMap, styles: [], meta: {} };
-  const doc = parse(src, { scriptingEnabled: false });
+  const ctx: Ctx = { reporter, css, imageMap, styles: [], meta: {}, pDepth: 0 };
+  // Read the input in standards mode, as the output (which carries a doctype) is read: in quirks mode
+  // a <table> stays inside an open <p>, so the two reads would build different trees.
+  let doc = parse(src, { scriptingEnabled: false });
+  if (doc.mode !== 'no-quirks') doc = parse('<!doctype html>' + src, { scriptingEnabled: false });
   const htmlEl = findChild(doc, 'html');
   let lang: string | null = null;
   let dir: string | null = null;
@@ -566,6 +678,43 @@ function core(input: string, imageMap: Record<string, string>): CoreResult {
       walk(ctx, body, bodyOut, 'html', 'body');
     }
   }
+  // A proof sheet (plan v3 Phase 4): when <body> holds <section data-face="front"> (and maybe "back"),
+  // those two are the whole card; anything else at the top level is scaffolding and is removed.
+  const faceOf = (n: ONode) => (n.t === 'el' && n.name === 'section' ? n.attrs.find(([k]) => k === 'data-face')?.[1] : undefined);
+  const isSections = bodyOut.some((n) => faceOf(n) === 'front');
+  if (isSections) {
+    const kept: ONode[] = [];
+    const seenFaces = new Set<string>();
+    for (const n of bodyOut) {
+      const f = faceOf(n);
+      if (f === 'front' || f === 'back') {
+        if (seenFaces.has(f)) {
+          reporter.removed('proof.duplicate', f);
+          continue;
+        }
+        seenFaces.add(f);
+        kept.push(n);
+      } else if (n.t === 'el') reporter.removed('proof.body', n.name);
+      else if (n.v.trim()) reporter.removed('proof.body', 'text');
+    }
+    kept.sort((a, b) => (faceOf(a) === 'front' ? -1 : 0) - (faceOf(b) === 'front' ? -1 : 0));
+    bodyOut.length = 0;
+    bodyOut.push(...kept);
+  } else {
+    // data-face only means something on the two face sections; anywhere else it is the host's.
+    const strip = (nodes: ONode[]) => {
+      for (const n of nodes) {
+        if (n.t !== 'el') continue;
+        const i = n.attrs.findIndex(([k]) => k === 'data-face');
+        if (i >= 0) {
+          n.attrs.splice(i, 1);
+          reporter.removed('attr.data_face');
+        }
+        strip(n.children);
+      }
+    };
+    strip(bodyOut);
+  }
   const children = minify(bodyOut, false);
 
   const acc = { elements: 0, depth: 0 };
@@ -587,6 +736,7 @@ function core(input: string, imageMap: Record<string, string>): CoreResult {
   if (m.finish) head += `<meta name="scrollodex:finish" content="${m.finish}">`;
   if (m.finishMask) head += `<meta name="scrollodex:finish-mask" content="${escAttr(m.finishMask)}">`;
   if (m.background) head += `<meta name="scrollodex:background" content="${escAttr(m.background)}">`;
+  if (m.summary) head += `<meta name="scrollodex:summary" content="${escAttr(m.summary)}">`;
   if (ctx.title) head += `<title>${escText(ctx.title)}</title>`;
   const cssText = ctx.styles.join('');
   if (cssText) head += `<style>${cssText}</style>`;
@@ -613,6 +763,8 @@ function core(input: string, imageMap: Record<string, string>): CoreResult {
   };
   if (m.finishMask) meta.finishMask = m.finishMask;
   if (m.background) meta.background = m.background;
+  if (m.summary) meta.summary = m.summary;
+  if (isSections) meta.sections = true;
 
   return {
     html,

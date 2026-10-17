@@ -1,4 +1,4 @@
-import type { CardMeta, Finish } from '@scrollodex/canon';
+import type { CardMeta, Finish } from '@carte/canon';
 
 export type { CardMeta, Finish };
 

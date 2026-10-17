@@ -1,1 +1,36 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="scrollodex:orientation" content="landscape"><meta name="scrollodex:finish" content="emboss"><meta name="scrollodex:background" content="#f3efe6"><style>body{background:#F3EFE6;color:#16150F;font-family:"Instrument Serif",Georgia,serif}.card{position:absolute;inset:0;padding:44px 52px;box-sizing:border-box}.grain{position:absolute;inset:0;opacity:.5;background-image:radial-gradient(rgba(22,21,15,.05) 1px,transparent 1px),radial-gradient(rgba(22,21,15,.035) 1px,transparent 1px);background-size:5px 5px,7px 7px;background-position:0 0,2px 3px}.mark{position:absolute;right:52px;top:44px;width:64px;height:64px}.mark svg{width:100%;height:100%}.name{position:absolute;left:52px;bottom:118px;font-size:58px;line-height:1;letter-spacing:-.01em}.role{position:absolute;left:54px;bottom:84px;font-family:"Inter",system-ui,sans-serif;font-size:16px;color:#5B574C;letter-spacing:.01em}.handle{position:absolute;left:54px;bottom:44px;font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:14px;color:#5B574C}.rule{position:absolute;left:52px;right:52px;bottom:72px;height:1px;background:rgba(22,21,15,.14)}.back{display:none}html[data-face="back"] .front{display:none}html[data-face="back"] .back{display:block}.back .line{position:absolute;left:52px;right:52px;font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:15px;color:#16150F}.back .l1{top:150px}.back .l2{top:180px}.back .l3{top:210px}.back .k{color:#9A9486;display:inline-block;width:92px}.back .quote{position:absolute;left:52px;right:52px;bottom:48px;font-size:22px;font-style:italic;color:#5B574C}</style></head><body> <div class="grain"></div> <div class="card front"> <div class="mark"> <svg viewBox="0 0 64 64" role="img" aria-label="A card turned slightly, with a second card behind it"> <rect x="10" y="16" width="44" height="30" rx="2" fill="none" stroke="#16150F" stroke-width="1.5" transform="rotate(-8 32 31)"></rect> <path d="M16 13 L50 8" stroke="#16150F" stroke-width="1" opacity=".6"></path> </svg> </div> <div class="name">Theodora Vance</div> <div class="rule"></div> <div class="role">Architect · Vance &amp; Hale</div> <div class="handle">&#64;theodora</div> </div> <div class="card back"> <div class="line l1"><span class="k">studio</span>Vance &amp; Hale, Lisbon</div> <div class="line l2"><span class="k">practice</span>Houses, libraries, one lighthouse</div> <div class="line l3"><span class="k">handle</span>&#64;theodora</div> <div class="quote">Good paper, black ink, soft daylight.</div> </div> </body></html>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="scrollodex:orientation" content="landscape">
+<meta name="scrollodex:finish" content="emboss">
+<meta name="scrollodex:background" content="#f3efe6">
+<meta name="scrollodex:summary" content="A bone-white card with a black serif name, a small card-outline mark in the top right, and a mono handle. The back lists the studio and practice.">
+
+
+<!-- PROOF SCAFFOLD. Left out when published; the app ships these same fonts. -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono&family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&display=swap">
+<style data-proof>
+  body{margin:0;min-height:100vh;display:flex;flex-wrap:wrap;gap:40px;align-items:center;justify-content:center;padding:48px;box-sizing:border-box;background:#e8e4dc}
+  [data-face]{flex:none;box-shadow:0 1px 2px rgba(0,0,0,.08),0 24px 48px -24px rgba(0,0,0,.35);border-radius:14px}
+  [data-face]::after{content:attr(data-face);position:absolute;top:100%;left:0;margin-top:10px;font:12px/1 system-ui;letter-spacing:.08em;text-transform:uppercase;color:#777}
+  @media (prefers-color-scheme:dark){body{background:#1c1b18}}
+  @media (max-width:800px){body{zoom:.5}}
+</style>
+
+<style>
+[data-face]{position:relative;width:700px;height:400px;overflow:hidden;background:#f3efe6}
+[data-face]{background:#F3EFE6;color:#16150F;font-family:"Instrument Serif",Georgia,serif}.card{position:absolute;inset:0;padding:44px 52px;box-sizing:border-box}.grain{position:absolute;inset:0;opacity:.5;background-image:radial-gradient(rgba(22,21,15,.05) 1px,transparent 1px),radial-gradient(rgba(22,21,15,.035) 1px,transparent 1px);background-size:5px 5px,7px 7px;background-position:0 0,2px 3px}.mark{position:absolute;right:52px;top:44px;width:64px;height:64px}.mark svg{width:100%;height:100%}.name{position:absolute;left:52px;bottom:118px;font-size:58px;line-height:1;letter-spacing:-.01em}.role{position:absolute;left:54px;bottom:84px;font-family:"Inter",system-ui,sans-serif;font-size:16px;color:#5B574C;letter-spacing:.01em}.handle{position:absolute;left:54px;bottom:44px;font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:14px;color:#5B574C}.rule{position:absolute;left:52px;right:52px;bottom:72px;height:1px;background:rgba(22,21,15,.14)}.back .line{position:absolute;left:52px;right:52px;font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:15px;color:#16150F}.back .l1{top:150px}.back .l2{top:180px}.back .l3{top:210px}.back .k{color:#9A9486;display:inline-block;width:92px}.back .quote{position:absolute;left:52px;right:52px;bottom:48px;font-size:22px;font-style:italic;color:#5B574C}
+</style>
+</head>
+<body>
+<section data-face="front">
+<div class="grain"></div>
+<div class="card front"> <div class="mark"> <svg viewBox="0 0 64 64" role="img" aria-label="A card turned slightly, with a second card behind it"> <rect x="10" y="16" width="44" height="30" rx="2" fill="none" stroke="#16150F" stroke-width="1.5" transform="rotate(-8 32 31)"></rect> <path d="M16 13 L50 8" stroke="#16150F" stroke-width="1" opacity=".6"></path> </svg> </div> <div class="name">Theodora Vance</div> <div class="rule"></div> <div class="role">Architect · Vance &amp; Hale</div> <div class="handle">@theodora</div> </div>
+</section>
+<section data-face="back">
+<div class="grain"></div>
+<div class="card back"> <div class="line l1"><span class="k">studio</span>Vance &amp; Hale, Lisbon</div> <div class="line l2"><span class="k">practice</span>Houses, libraries, one lighthouse</div> <div class="line l3"><span class="k">handle</span>@theodora</div> <div class="quote">Good paper, black ink, soft daylight.</div> </div>
+</section>
+</body>
+</html>

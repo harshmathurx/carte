@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CARD_CSP, canonHtml } from '@scrollodex/canon';
+import { CARD_CSP, canonHtml } from '@carte/canon';
 import { buildSrcdoc, SrcdocError } from '../src/srcdoc';
 import type { VerifiedBundle } from '../src/types';
 

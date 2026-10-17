@@ -1,5 +1,5 @@
 {
-  "name": "@scrollodex/canon",
+  "name": "@carte/canon",
   "version": "0.0.0",
   "license": "Apache-2.0",
   "type": "module",
@@ -15,7 +15,6 @@
     "bundle:deno": "node scripts/bundle-deno.mjs"
   },
   "dependencies": {
-    "@noble/ed25519": "^3.2.0",
     "css-tree": "^3.1.0",
     "parse5": "^7.3.0"
   },

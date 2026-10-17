@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://scrollodex.app/spec/scf-0/contact.schema.json",
-  "title": "Scrollodex contact record (SCF-0)",
-  "description": "contact.json: the private contact a collector saves, released only by a full-scope redeem. Describes validateContact in @scrollodex/canon, which is normative: it also trims strings, strips spaces, dots, dashes and brackets from phone numbers before the E.164 check, counts length in code points after trimming, and drops duplicate tags.",
+  "$id": "https://mycarte.art/spec/scf-0/contact.schema.json",
+  "title": "Carte contact record (SCF-0)",
+  "description": "contact.json: the private contact a collector saves, released only by a full-scope redeem. Describes validateContact in @carte/canon, which is normative: it also trims strings, strips spaces, dots, dashes and brackets from phone numbers before the E.164 check, counts length in code points after trimming, and drops duplicate tags.",
   "type": "object",
   "additionalProperties": false,
   "required": ["name", "a11y"],

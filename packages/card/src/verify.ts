@@ -1,17 +1,15 @@
-// The full `@scrollodex/canon` only for the re-canonicalizer (parse5 + css-tree): everything else
+// The full `@carte/canon` only for the re-canonicalizer (parse5 + css-tree): everything else
 // this module needs comes from the light `/core` entry, which stays free of an HTML/CSS parser.
-import { canonHtml } from '@scrollodex/canon';
+import { canonHtml } from '@carte/canon';
 import {
   CANON_VERSION,
-  b64u,
+  LIMITS,
   canonContact,
   contactCommit,
   type Contact,
   jcs,
   sha256hex,
-  signingMessage,
-  verifyEd25519,
-} from '@scrollodex/canon/core';
+} from '@carte/canon/core';
 import type { VerifiedBundle } from './types';
 
 export type VerifyErrorCode =
@@ -19,7 +17,6 @@ export type VerifyErrorCode =
   | 'verify.fetch'          // a listed file couldn't be fetched
   | 'verify.hash'           // a file's bytes don't match its listed hash
   | 'verify.digest'         // the listed hashes don't produce the claimed digest
-  | 'verify.signature'      // the Ed25519 signature doesn't cover this digest and handle
   | 'verify.contact'        // the contact doesn't match its commitment
   | 'verify.canon'          // card.html isn't canonical for its own canon version (tampered, or a canon bug)
   | 'verify.size';          // the bundle is over the D6 limits
@@ -35,10 +32,6 @@ export interface VerifyExpected {
   digest: string;
   /** 'card.html' and 'images/<hash12>.webp' → sha256hex; 'contact' → contact_commit. */
   files: Record<string, string>;
-  /** Ed25519 signature, b64url. */
-  signature: string;
-  /** Raw 32-byte Ed25519 public key, b64url. */
-  publicKey: string;
   handle: string;
   /** The canon version the card was published under (card_versions.canon_version). */
   canonVersion: number;
@@ -49,9 +42,9 @@ export interface VerifyExpected {
 
 const HEX64 = /^[0-9a-f]{64}$/;
 const FILE = /^(?:card\.html|images\/[0-9a-f]{12}\.(?:webp|png))$/;
-const MAX_HTML = 51200;
-const MAX_IMAGES = 6;
-const MAX_IMAGE_BYTES = 307200;
+const MAX_HTML = LIMITS.htmlUploadBytes;
+const MAX_IMAGES = LIMITS.images;
+const MAX_IMAGE_BYTES = LIMITS.imagesTotalBytes;
 
 function dataUri(path: string, bytes: Uint8Array): string {
   const mime = path.endsWith('.png') ? 'image/png' : 'image/webp';
@@ -62,11 +55,12 @@ function dataUri(path: string, bytes: Uint8Array): string {
 
 /**
  * Fetches every file of a card, checks it byte for byte, and returns something safe to render.
+ * There is no signature: the bytes come from our own storage over TLS, and the content hash is a
+ * bug check (D40', plan v3: the product performs no trust it doesn't have).
  * 1. Every file's bytes hash to the value in `files`.
  * 2. The digest recomputes as sha256hex(jcs({scf: 0, canon, handle, files})).
- * 3. The Ed25519 signature covers signingMessage(digest, handle).
- * 4. With a contact, its commitment recomputes and matches files.contact.
- * 5. card.html is re-canonicalized on this device (lock 3). Under the same canon version the
+ * 3. With a contact, its commitment recomputes and matches files.contact.
+ * 4. card.html is re-canonicalized on this device (lock 3). Under the same canon version the
  *    output must be byte-identical; under an older version the fresh canonical output is rendered.
  * Only then are images inlined as data: URIs of the verified bytes.
  */
@@ -87,14 +81,6 @@ export async function verifyAndInline(
 
   const digest = await sha256hex(jcs({ scf: 0, canon: expected.canonVersion, handle, files }));
   if (digest !== expected.digest) throw new VerifyError('verify.digest', 'The file list does not match the card digest.');
-
-  let sigOk = false;
-  try {
-    sigOk = await verifyEd25519(b64u.decode(expected.publicKey), signingMessage(digest, handle), b64u.decode(expected.signature));
-  } catch {
-    sigOk = false;
-  }
-  if (!sigOk) throw new VerifyError('verify.signature', 'The signature does not match this card.');
 
   if (expected.contact) {
     let commit: string;

@@ -4,7 +4,7 @@
  * only load with the full `canonHtml`/`isCanonical` re-canonicalizer, which stays out of this entry
  * so the first route's dependency graph never pulls in an HTML/CSS parser.
  *
- * Import this as `@scrollodex/canon/core`. The full `@scrollodex/canon` re-exports everything here
+ * Import this as `@carte/canon/core`. The full `@carte/canon` re-exports everything here
  * too, so anything already using the full package keeps working unchanged.
  */
 export { SCF_VERSION, CANON_VERSION, CARD_CSP, LIMITS, IMAGE_REF_RE } from './limits.js';
@@ -21,11 +21,6 @@ export {
   imageName,
   bundleDigest,
   digestFromHashes,
-  signingMessage,
-  keyProofMessage,
-  isValidPublicKey,
-  verifyEd25519,
-  ed25519,
   FILE_PATH_RE,
 } from './crypto.js';
 export { POINTER_RE, HANDLE_RE, parsePointer } from './pointer.js';

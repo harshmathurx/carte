@@ -15,10 +15,10 @@ describe('smoke', () => {
 describe('parsePointer appOrigin', () => {
   const tok = 'A'.repeat(22);
   it('accepts the host’s own https origin only when passed', () => {
-    expect(parsePointer(`https://scrollodex-app.vercel.app/x/${tok}`)).toBeNull();
-    expect(parsePointer(`https://scrollodex-app.vercel.app/x/${tok}`, { appOrigin: 'https://scrollodex-app.vercel.app' })).toBe(tok);
-    expect(parsePointer(`https://evil.example/x/${tok}`, { appOrigin: 'https://scrollodex-app.vercel.app' })).toBeNull();
-    expect(parsePointer(`http://scrollodex-app.vercel.app/x/${tok}`, { appOrigin: 'http://scrollodex-app.vercel.app' })).toBeNull();
-    expect(parsePointer(`https://scrollodex.app/x/${tok}`, { appOrigin: 'https://scrollodex-app.vercel.app' })).toBe(tok);
+    expect(parsePointer(`https://preview.example.app/x/${tok}`)).toBeNull();
+    expect(parsePointer(`https://preview.example.app/x/${tok}`, { appOrigin: 'https://preview.example.app' })).toBe(tok);
+    expect(parsePointer(`https://evil.example/x/${tok}`, { appOrigin: 'https://preview.example.app' })).toBeNull();
+    expect(parsePointer(`http://preview.example.app/x/${tok}`, { appOrigin: 'http://preview.example.app' })).toBeNull();
+    expect(parsePointer(`https://mycarte.art/x/${tok}`, { appOrigin: 'https://preview.example.app' })).toBe(tok);
   });
 });

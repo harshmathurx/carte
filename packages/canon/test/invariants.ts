@@ -8,8 +8,12 @@ const ALLOWED_HTML = new Set([
   'address', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'div', 'span', 'br', 'hr', 'blockquote', 'q', 'cite', 'em',
   'strong', 'b', 'i', 'u', 's', 'small', 'mark', 'sub', 'sup', 'abbr', 'time', 'ul', 'ol', 'li', 'dl', 'dt', 'dd',
   'img', 'picture', 'source', 'figure', 'figcaption',
+  'table', 'caption', 'colgroup', 'col', 'thead', 'tbody', 'tfoot', 'tr', 'td', 'th',
+  'pre', 'code', 'kbd', 'samp', 'var', 'del', 'ins', 'bdi', 'bdo', 'wbr',
+  'nav', 'hgroup', 'menu', 'ruby', 'rt', 'rp', 'dfn', 'data', 'label',
 ]);
-const FORBIDDEN_SVG = new Set(['script', 'foreignObject', 'use', 'image', 'feImage', 'a', 'animate', 'animateTransform', 'animateMotion', 'set', 'discard', 'style', 'handler', 'iframe']);
+// <use> survives only with a same-document href; the href check below catches anything else.
+const FORBIDDEN_SVG = new Set(['script', 'foreignObject', 'image', 'feImage', 'a', 'animate', 'animateTransform', 'animateMotion', 'set', 'discard', 'style', 'handler', 'iframe']);
 
 /** Substring checks from the build contract. Returns a list of violations (empty = inert). */
 export function textViolations(html: string): string[] {
@@ -53,7 +57,7 @@ export function textViolations(html: string): string[] {
   const css = [...lower.matchAll(/<style>([\s\S]*?)<\/style>|\sstyle="([^"]*)"/g)].map((m) => m[1] ?? m[2] ?? '').join('\n');
   for (const m of css.matchAll(/url\(\s*(['"]?)([^'")]*)\1\s*\)/g)) {
     const u = m[2]!;
-    if (!/^images\/[0-9a-f]{12}\.(?:webp|png)$/.test(u) && !/^#[a-z][a-z0-9-]*$/.test(u)) v.push('url(' + u + ')');
+    if (!/^images\/[0-9a-f]{12}\.(?:webp|png)$/.test(u) && !/^#[A-Za-z_][A-Za-z0-9_-]*$/.test(u)) v.push('url(' + u + ')');
   }
   return v;
 }
@@ -82,7 +86,8 @@ export function treeViolations(html: string): string[] {
             if (!/^images\/[0-9a-f]{12}\.(?:webp|png)$/.test(u)) v.push(name + ' ' + u);
           }
         }
-        if (name === 'data-face' || name === 'srcdoc' || name === 'formaction' || name === 'ping') v.push('attr ' + name);
+        if (name === 'srcdoc' || name === 'formaction' || name === 'ping') v.push('attr ' + name);
+        if (name === 'data-face' && !(el.tagName === 'section' && (p as El).tagName === 'body' && /^(?:front|back)$/.test(a.value))) v.push('attr ' + name);
       }
       walk(el);
       if (el.tagName === 'template') walk((el as unknown as { content: Parent }).content);

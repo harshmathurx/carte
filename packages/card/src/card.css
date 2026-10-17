@@ -1,4 +1,4 @@
-/* @scrollodex/card: the host around a card. Cards themselves are script-less documents
+/* @carte/card: the host around a card. Cards themselves are script-less documents
    in sandboxed frames; everything here is drawn by the host (D9). */
 
 .sx-stage, .sx-rolo {

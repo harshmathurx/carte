@@ -23,8 +23,21 @@ const DEAD_PSEUDO = new Set([
   'read-only', 'required', 'optional', 'valid', 'invalid', 'in-range', 'out-of-range', 'playing', 'paused',
   'current', 'past', 'future', 'fullscreen', 'picture-in-picture', 'drop', 'state',
 ]);
-const DENIED_PROPS = new Set(['behavior', '-moz-binding', '-webkit-binding', '-ms-behavior', 'src', 'unicode-range']);
-const DANGEROUS_TOKENS = ['expression(', 'javascript:', 'vbscript:', 'livescript:', 'mocha:', 'attr(', 'binding', 'behavior', '@import'];
+/** Property names with capability: script bindings, font loading, and editing (user-modify makes text input). */
+const DENIED_PROPS = new Set([
+  'behavior', '-moz-binding', '-webkit-binding', '-ms-behavior', 'src', 'unicode-range', '-webkit-user-modify', 'user-modify',
+]);
+/** Matched against squashed values. `binding`/`behavior` only as a declaration (`binding:`) or the vendor
+ * property names, so a family like "Binding Sans" keeps its name. */
+const DANGEROUS_TOKENS = [
+  'expression(', 'javascript:', 'vbscript:', 'livescript:', 'mocha:', 'attr(', 'binding:', '-moz-binding', '-webkit-binding',
+  'behavior:', '@import',
+];
+/** URL schemes and protocol-relative starts that a custom property may not carry, even as a string. */
+const CUSTOM_PROP_URL_RE =
+  /(?:https?|javascript|vbscript|livescript|mocha|data|file|blob|filesystem|ftp|wss?|about|jar|view-source|intent|cid|mid|res|ms-[a-z-]+):|\/\//;
+/** Nesting levels the parser will retry a nested rule written without `&` (each retry is a re-parse). */
+const MAX_NEST_RECOVERY = 64;
 const BANNED_FUNCTIONS = new Set(['element', '-moz-element', 'paint', 'image', 'src', 'url-prefix', 'expression', 'attr']);
 /** Functions whose string arguments are image URLs; allowed only when every one is a card image. */
 const IMAGE_FUNCTIONS = new Set(['image-set', '-webkit-image-set', 'cross-fade', '-webkit-cross-fade']);
@@ -58,25 +71,84 @@ function squash(s: string): string {
 const hasEscape = (v: unknown): boolean => typeof v === 'string' && v.includes('\\');
 
 function parse(css: string, context: 'stylesheet' | 'declarationList', ctx: CssContext): N | null {
-  let errors = 0;
+  const r = parseRecovering(css, context, 0);
+  if (!r) {
+    ctx.reporter.removed('css.parse_error');
+    return null;
+  }
+  if (r.errors) ctx.reporter.removed('css.parse_error');
+  return r.ast;
+}
+
+/**
+ * Parse, then read nested style rules written without `&` (`.card { .t {…} }`, `> p {…}`), which css-tree
+ * leaves as one unread Raw run: each run is read again with `& ` in front, which is what the nesting spec
+ * means by a selector without `&`. Parse errors inside a run that reads cleanly that way don't count.
+ */
+function parseRecovering(css: string, context: string, depth: number): { ast: N; errors: boolean } | null {
+  const errs: number[] = [];
   let ast: N;
   try {
     ast = csstree.parse(css, {
       context,
+      positions: true,
       parseValue: true,
       parseCustomProperty: true,
       parseAtrulePrelude: true,
       parseRulePrelude: true,
-      onParseError: () => {
-        errors++;
+      onParseError: (e: N) => {
+        errs.push(typeof e?.offset === 'number' ? e.offset : -1);
       },
     } as N);
   } catch {
-    ctx.reporter.removed('css.parse_error');
     return null;
   }
-  if (errors) ctx.reporter.removed('css.parse_error');
-  return ast;
+  const forgiven: [number, number][] = [];
+  let failed = false;
+  if (depth < MAX_NEST_RECOVERY) {
+    const raws: { list: N; item: N; node: N }[] = [];
+    csstree.walk(ast, {
+      visit: 'Block',
+      enter(this: N, block: N) {
+        if (!this.rule) return; // only inside a style rule does a bare selector mean `& selector`
+        block.children.forEach((node: N, item: N, list: N) => {
+          if (node.loc && (node.type === 'Raw' || ruleLikeDeclaration(node))) raws.push({ list, item, node });
+        });
+      },
+    } as N);
+    for (const { list, item, node } of raws) {
+      const rec = recoverNested(css.slice(node.loc.start.offset, node.loc.end.offset), depth + 1);
+      if (!rec) continue;
+      forgiven.push([node.loc.start.offset, node.loc.end.offset]);
+      if (rec.errors) failed = true;
+      for (const n of rec.nodes) list.insertData(n, item);
+      list.remove(item);
+    }
+  }
+  const errors = failed || errs.some((o) => !forgiven.some(([a, b]) => o >= a && o <= b));
+  return { ast, errors };
+}
+
+/** `a:first-child { … }` reads as a declaration whose value holds a {}-block; css-syntax-3 reads that as a rule. */
+function ruleLikeDeclaration(node: N): boolean {
+  if (node.type !== 'Declaration' || String(node.property).startsWith('--') || !node.value) return false;
+  if (node.value.type === 'Raw') return String(node.value.value ?? '').includes('{');
+  let block = false;
+  csstree.walk(node.value, (n: N) => {
+    if (n.type === 'Block' || (n.type === 'Raw' && String(n.value ?? '').includes('{'))) block = true;
+  });
+  return block;
+}
+
+function recoverNested(text: string, depth: number): { nodes: N[]; errors: boolean } | null {
+  if (!text.trim()) return null;
+  const r = parseRecovering(`.x{& ${text}}`, 'stylesheet', depth);
+  const rule = r?.ast.children.first;
+  if (!r || r.ast.children.size !== 1 || rule?.type !== 'Rule' || !rule.block) return null;
+  const items: N[] = rule.block.children.toArray();
+  // Nothing gained when even the first item can't be read with `&`: it stays a parse error.
+  if (!items.length || items[0].type === 'Raw') return null;
+  return { nodes: items.filter((n) => n.type !== 'Raw'), errors: r.errors || items.some((n) => n.type === 'Raw') };
 }
 
 function listFilter(list: N, keep: (node: N) => boolean): void {
@@ -180,7 +252,14 @@ function sanitizeDeclaration(decl: N, ctx: CssContext): boolean {
     ctx.reporter.removed('css.dangerous', prop);
     return false;
   }
-  if (!prop.startsWith('--') && !(csstree.lexer as unknown as { getProperty(n: string): unknown }).getProperty(prop)) {
+  // A property name has no capability; the risk lives in values, which are filtered below. Names
+  // css-tree doesn't know are kept when they look like CSS (hyphenated: new properties, vendor
+  // prefixes); a bare unknown word is dropped, so `javascript:alert(1)` can't pose as a declaration.
+  if (
+    !prop.startsWith('--') &&
+    !(csstree.lexer as unknown as { getProperty(n: string): unknown }).getProperty(prop) &&
+    !/^-?[a-z]+(?:-[a-z0-9]+)+$/.test(prop)
+  ) {
     ctx.reporter.removed('css.unknown_property', prop);
     return false;
   }
@@ -210,7 +289,7 @@ function sanitizeDeclaration(decl: N, ctx: CssContext): boolean {
     ctx.reporter.removed('css.dangerous', prop);
     return false;
   }
-  if (prop.startsWith('--') && /(?:[a-z][a-z0-9+.-]*:|\/\/)/.test(sq.replace(/"[^"]*"|'[^']*'/g, (m) => m.replace(/[^a-z0-9:/+.-]/g, '')))) {
+  if (prop.startsWith('--') && CUSTOM_PROP_URL_RE.test(sq.replace(/"[^"]*"|'[^']*'/g, (m) => m.replace(/[^a-z0-9:/+.-]/g, '')))) {
     ctx.reporter.removed('css.url', prop);
     return false;
   }
@@ -296,10 +375,15 @@ function sanitizeRule(rule: N, ctx: CssContext, inKeyframes: boolean): boolean {
       ctx.reporter.removed('css.parse_error', csstree.generate(prelude));
       return false;
     }
-    if (selectorDead(prelude)) {
-      ctx.reporter.removed('css.dead_selector', csstree.generate(prelude));
+    // A selector that can never match goes on its own; the rest of the list keeps the rule.
+    const dead: string[] = [];
+    listFilter(prelude.children, (sel: N) => {
+      if (!selectorDead(sel)) return true;
+      dead.push(csstree.generate(sel));
       return false;
-    }
+    });
+    if (dead.length) ctx.reporter.removed('css.dead_selector', dead.join(','));
+    if (prelude.children.isEmpty) return false;
   }
   sanitizeBlock(rule.block, ctx, false);
   return !!rule.block && !rule.block.children.isEmpty;
@@ -353,6 +437,34 @@ function sanitizeAtrule(at: N, ctx: CssContext): boolean {
         return sanitizeDeclaration(node, ctx);
       });
       return true;
+    }
+    case 'layer': {
+      // `@layer a, b;` (statement) or `@layer a { … }` (block): names only in the prelude.
+      if (!/^[a-zA-Z0-9_.,\s-]*$/.test(preludeText)) {
+        ctx.reporter.removed('css.at_rule', '@' + name);
+        return false;
+      }
+      if (!at.block) return true;
+      sanitizeBlock(at.block, ctx, false);
+      return !at.block.children.isEmpty;
+    }
+    case 'scope':
+    case 'starting-style': {
+      const pre = squash(preludeText);
+      if (!at.block || preludeText.includes('\\') || /url\(|@|expression|javascript|attr\(|src\(/.test(pre)) {
+        ctx.reporter.removed('css.at_rule', '@' + name);
+        return false;
+      }
+      sanitizeBlock(at.block, ctx, false);
+      return !at.block.children.isEmpty;
+    }
+    case 'counter-style': {
+      if (!/^[a-zA-Z_][a-zA-Z0-9_-]{0,63}$/.test(preludeText) || !at.block) {
+        ctx.reporter.removed('css.at_rule', '@' + name);
+        return false;
+      }
+      listFilter(at.block.children, (node: N) => node.type === 'Declaration' && sanitizeDeclaration(node, ctx));
+      return !at.block.children.isEmpty;
     }
     case 'import':
       ctx.reporter.removed('css.import');

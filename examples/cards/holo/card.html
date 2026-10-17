@@ -1,1 +1,38 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="scrollodex:orientation" content="landscape"><meta name="scrollodex:finish" content="holo"><meta name="scrollodex:background" content="#0e0e14"><style>body{background:#0E0E14;color:#16151E;font-family:"Syne","Space Grotesk",sans-serif}.card{position:absolute;inset:0;padding:40px 48px;box-sizing:border-box;overflow:hidden}.sheen{position:absolute;inset:0;background:linear-gradient(115deg,#FF9CEE 0%,#9CD8FF 20%,#C9FFB8 40%,#FFF3A0 55%,#FFB1C9 70%,#B7A6FF 90%);animation:shift 7s ease-in-out infinite}@keyframes shift{0%,100%{filter:hue-rotate(0deg)}50%{filter:hue-rotate(35deg)}}.film{position:absolute;inset:0;background:repeating-linear-gradient(100deg,rgba(255,255,255,.35)0 2px,transparent 2px 14px);mix-blend-mode:overlay}.mark{position:absolute;right:48px;top:40px;width:60px;height:60px}.name{position:absolute;left:48px;bottom:120px;font-size:46px;font-weight:700;letter-spacing:-.01em;color:#14131C;text-shadow:0 1px 0 rgba(255,255,255,.5)}.role{position:absolute;left:50px;bottom:86px;font-family:"Space Grotesk",sans-serif;font-size:15px;color:#2B2A38}.handle{position:absolute;left:50px;bottom:46px;font-family:"IBM Plex Mono",monospace;font-size:13px;color:#2B2A38;opacity:.8}.rule{position:absolute;left:48px;right:48px;bottom:74px;height:1px;background:rgba(20,19,28,.25)}.back{display:none}html[data-face="back"] .front{display:none}html[data-face="back"] .back{display:block}.back .sheen2{position:absolute;inset:0;background:linear-gradient(250deg,#C9FFB8 0%,#FFB1C9 30%,#9CD8FF 55%,#FFF3A0 80%);animation:shift 8s ease-in-out infinite reverse}.back .line{position:absolute;left:48px;right:48px;font-family:"IBM Plex Mono",monospace;font-size:14px;color:#16151E}.back .l1{top:150px}.back .l2{top:180px}.back .l3{top:210px}.back .k{color:#3A3948;display:inline-block;width:92px}.back .quote{position:absolute;left:48px;right:48px;bottom:46px;font-size:20px;font-style:italic;color:#24232F}</style></head><body> <div class="sheen"></div> <div class="film"></div> <div class="card front"> <div class="mark"> <svg viewBox="0 0 60 60" role="img" aria-label="A prism splitting a beam of light into a rainbow"> <path d="M10 44 L30 12 L50 44 Z" fill="none" stroke="#16151E" stroke-width="1.6"></path> <line x1="2" y1="30" x2="14" y2="30" stroke="#16151E" stroke-width="1.2"></line> <line x1="46" y1="18" x2="58" y2="10" stroke="#FF3CB4" stroke-width="1"></line> <line x1="46" y1="24" x2="58" y2="20" stroke="#46C8FF" stroke-width="1"></line> <line x1="46" y1="30" x2="58" y2="30" stroke="#FFEA46" stroke-width="1"></line> </svg> </div> <div class="name">Iris Novak</div> <div class="rule"></div> <div class="role">Holographic Print Designer</div> <div class="handle">&#64;irisnovak</div> </div> <div class="card back"> <div class="sheen2"></div> <div class="line l1"><span class="k">studio</span>Prism Foil Works</div> <div class="line l2"><span class="k">practice</span>Foils, films, things that shimmer</div> <div class="line l3"><span class="k">handle</span>&#64;irisnovak</div> <div class="quote">Tilt it. It changes its mind.</div> </div> </body></html>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="scrollodex:orientation" content="landscape">
+<meta name="scrollodex:finish" content="holo">
+<meta name="scrollodex:background" content="#0e0e14">
+<meta name="scrollodex:summary" content="An iridescent card shifting through pink, blue, green and gold like a soap bubble, with a faint diagonal film texture and a small prism mark splitting light into a rainbow. The back repeats the shimmering gradient in reverse.">
+
+
+<!-- PROOF SCAFFOLD. Left out when published; the app ships these same fonts. -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono&family=Space+Grotesk&family=Syne:wght@400;700;800&display=swap">
+<style data-proof>
+  body{margin:0;min-height:100vh;display:flex;flex-wrap:wrap;gap:40px;align-items:center;justify-content:center;padding:48px;box-sizing:border-box;background:#e8e4dc}
+  [data-face]{flex:none;box-shadow:0 1px 2px rgba(0,0,0,.08),0 24px 48px -24px rgba(0,0,0,.35);border-radius:14px}
+  [data-face]::after{content:attr(data-face);position:absolute;top:100%;left:0;margin-top:10px;font:12px/1 system-ui;letter-spacing:.08em;text-transform:uppercase;color:#777}
+  @media (prefers-color-scheme:dark){body{background:#1c1b18}}
+  @media (max-width:800px){body{zoom:.5}}
+</style>
+
+<style>
+[data-face]{position:relative;width:700px;height:400px;overflow:hidden;background:#0e0e14}
+[data-face]{background:#0E0E14;color:#16151E;font-family:"Syne","Space Grotesk",sans-serif}.card{position:absolute;inset:0;padding:40px 48px;box-sizing:border-box;overflow:hidden}.sheen{position:absolute;inset:0;background:linear-gradient(115deg,#FF9CEE 0%,#9CD8FF 20%,#C9FFB8 40%,#FFF3A0 55%,#FFB1C9 70%,#B7A6FF 90%);animation:shift 7s ease-in-out infinite}@keyframes shift{0%,100%{filter:hue-rotate(0deg)}50%{filter:hue-rotate(35deg)}}.film{position:absolute;inset:0;background:repeating-linear-gradient(100deg,rgba(255,255,255,.35)0 2px,transparent 2px 14px);mix-blend-mode:overlay}.mark{position:absolute;right:48px;top:40px;width:60px;height:60px}.name{position:absolute;left:48px;bottom:120px;font-size:46px;font-weight:700;letter-spacing:-.01em;color:#14131C;text-shadow:0 1px 0 rgba(255,255,255,.5)}.role{position:absolute;left:50px;bottom:86px;font-family:"Space Grotesk",sans-serif;font-size:15px;color:#2B2A38}.handle{position:absolute;left:50px;bottom:46px;font-family:"IBM Plex Mono",monospace;font-size:13px;color:#2B2A38;opacity:.8}.rule{position:absolute;left:48px;right:48px;bottom:74px;height:1px;background:rgba(20,19,28,.25)}.back .sheen2{position:absolute;inset:0;background:linear-gradient(250deg,#C9FFB8 0%,#FFB1C9 30%,#9CD8FF 55%,#FFF3A0 80%);animation:shift 8s ease-in-out infinite reverse}.back .line{position:absolute;left:48px;right:48px;font-family:"IBM Plex Mono",monospace;font-size:14px;color:#16151E}.back .l1{top:150px}.back .l2{top:180px}.back .l3{top:210px}.back .k{color:#3A3948;display:inline-block;width:92px}.back .quote{position:absolute;left:48px;right:48px;bottom:46px;font-size:20px;font-style:italic;color:#24232F}
+</style>
+</head>
+<body>
+<section data-face="front">
+<div class="sheen"></div>
+<div class="film"></div>
+<div class="card front"> <div class="mark"> <svg viewBox="0 0 60 60" role="img" aria-label="A prism splitting a beam of light into a rainbow"> <path d="M10 44 L30 12 L50 44 Z" fill="none" stroke="#16151E" stroke-width="1.6"></path> <line x1="2" y1="30" x2="14" y2="30" stroke="#16151E" stroke-width="1.2"></line> <line x1="46" y1="18" x2="58" y2="10" stroke="#FF3CB4" stroke-width="1"></line> <line x1="46" y1="24" x2="58" y2="20" stroke="#46C8FF" stroke-width="1"></line> <line x1="46" y1="30" x2="58" y2="30" stroke="#FFEA46" stroke-width="1"></line> </svg> </div> <div class="name">Iris Novak</div> <div class="rule"></div> <div class="role">Holographic Print Designer</div> <div class="handle">@irisnovak</div> </div>
+</section>
+<section data-face="back">
+<div class="sheen"></div>
+<div class="film"></div>
+<div class="card back"> <div class="sheen2"></div> <div class="line l1"><span class="k">studio</span>Prism Foil Works</div> <div class="line l2"><span class="k">practice</span>Foils, films, things that shimmer</div> <div class="line l3"><span class="k">handle</span>@irisnovak</div> <div class="quote">Tilt it. It changes its mind.</div> </div>
+</section>
+</body>
+</html>

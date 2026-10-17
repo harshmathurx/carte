@@ -1,6 +1,6 @@
 import type { VerifiedBundle } from './types';
 
-import { CARD_CSP } from '@scrollodex/canon';
+import { CARD_CSP } from '@carte/canon';
 
 export { CARD_CSP };
 
@@ -55,7 +55,8 @@ function fontFaces(families: readonly string[], fonts: Record<string, string>): 
 /**
  * Builds the frame document for one face of a verified card.
  * - The CSP meta is the first child of <head>; library @font-face rules follow it, before the author's styles.
- * - The back face gets <html data-face="back">; the front gets no data-face.
+ * - The back face gets <html data-face="back">; the front gets no data-face. A proof-sheet card (two
+ *   <section data-face> in <body>) also gets the other section hidden and both sections sized to the frame.
  * - images/<hash12>.webp references become data: URIs of the verified bytes.
  * - Library fonts become data: @font-face rules.
  * - still: animations off (for decks, where only the front card is live).
@@ -98,9 +99,12 @@ export function buildSrcdoc(
   bodyInner = inline(bodyInner);
 
   const size = CARD_SIZE[b.meta.orientation === 'portrait' ? 'portrait' : 'landscape'];
+  const other = face === 'back' ? 'front' : 'back';
   const base =
     `html,body{margin:0;padding:0;width:${size.w}px;height:${size.h}px;overflow:hidden}` +
     'body{position:relative}' +
+    'body>section[data-face]{position:absolute!important;inset:0!important;width:100%!important;height:100%!important;margin:0!important;box-shadow:none!important;border-radius:0!important}' +
+    `body>section[data-face="${other}"]{display:none!important}` +
     '*,*::before,*::after{cursor:default!important}';
   const faces = fontFaces(b.meta.fonts ?? [], fonts);
   const rootAttrs = cleanRootAttrs(htmlTag ? htmlTag[1] : '') + (face === 'back' ? ' data-face="back"' : '');

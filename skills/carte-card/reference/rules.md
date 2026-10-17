@@ -1,6 +1,6 @@
-# Scrollodex card rules (from the code)
+# Carte card rules (from the code)
 
-Everything here is read from `@scrollodex/canon` (`open/packages/canon/src/`: `limits.ts`, `html.ts`, `css.ts`, `url.ts`, `contact.ts`), canon version 1, format SCF-0. Where the prose spec or the architecture doc disagrees, this file follows the code.
+Everything here is read from `@carte/canon` (`open/packages/canon/src/`: `limits.ts`, `html.ts`, `css.ts`, `url.ts`, `contact.ts`), canon version 1, format SCF-0. Where the prose spec or the architecture doc disagrees, this file follows the code.
 
 "Removed" means the thing is gone and the author sees it in the cleaner's report. "Rejected" means the whole card is refused until it's fixed.
 
@@ -8,9 +8,9 @@ Everything here is read from `@scrollodex/canon` (`open/packages/canon/src/`: `l
 
 | Limit | Value | Over it |
 |---|---|---|
-| `card.html` as uploaded | 51,200 bytes (50 KB) | rejected, never truncated |
+| `card.html` as uploaded | 153,600 bytes (150 KB) | rejected, never truncated |
 | Images referenced (including the finish mask) | 6 | rejected |
-| Images total after re-encode | 307,200 bytes (300 KB) | rejected by the publisher |
+| Images total after re-encode | 614,400 bytes (600 KB) | rejected by the publisher |
 | Image longest side | 1600 px (larger images are resized) | resized |
 | Elements (HTML + inline SVG) | 3,000 | rejected |
 | Nesting depth | 48 | rejected |
@@ -36,7 +36,7 @@ Unknown `scrollodex:` names and invalid values are removed.
 
 **Kept:** `main`, `section`, `article`, `aside`, `header`, `footer`, `address`, `h1`–`h6`, `p`, `div`, `span`, `br`, `hr`, `blockquote`, `q`, `cite`, `em`, `strong`, `b`, `i`, `u`, `s`, `small`, `mark`, `sub`, `sup`, `abbr`, `time`, `ul`, `ol`, `li`, `dl`, `dt`, `dd`, `img`, `picture`, `source` (inside `picture` only), `figure`, `figcaption`, and inline `svg` (SVG rules below). Plus the document shell: `html`, `head`, `body`, `title` (first one, trimmed to 120 characters), `style`.
 
-**Rewritten:** `a` becomes `span`. Its text stays and `href` is removed. Links belong in `contact.json`.
+**Rewritten:** `a` becomes `span`. Its text stays and `href` is removed. Links belong in the app's Details.
 
 **Removed with everything inside:** `script`, `noscript`, `template`, `iframe`, `frame`, `frameset`, `object`, `embed`, `applet`, `param`, `portal`, `form`, `input`, `button`, `select`, `option`, `optgroup`, `textarea`, `output`, `fieldset`, `legend`, `datalist`, `progress`, `meter`, `canvas`, `audio`, `video`, `track`, `map`, `area`, `base`, `link`, `dialog`, `slot`, `math`, `xmp`, `plaintext`, `listing`, `noembed`, `noframes`, `selectedcontent`, `search`. HTML comments are removed.
 
@@ -92,8 +92,8 @@ Unknown `scrollodex:` names and invalid values are removed.
 - The only URL a card can hold is one of its own images. In the published card that's `images/<12 hex>.webp` (or `.png`). While authoring, write `images/<your file name>`; the app re-encodes each file and rewrites the reference.
 - A reference to a file that isn't in the bundle is removed (`image.missing`).
 - External `https:` images are removed from the HTML and listed for the author to download and add themselves.
-- `data:` URIs are removed from the HTML (and they eat the 50 KB budget). Put the file in `images/`.
-- Accepted files: PNG, JPEG, WebP. Everything is resized to 1600 px on the long side and re-encoded to WebP. Up to 6, 300 KB total after re-encoding.
+- `data:` URIs are removed from the HTML (and they eat the 150 KB budget). Put the file in `images/`.
+- Accepted files: PNG, JPEG, WebP. Everything is resized to 1600 px on the long side and re-encoded to WebP. Up to 10, 600 KB total after re-encoding.
 - In CSS, `url()`, `image-set()` and `cross-fade()` may only name card images. `url(#id)` works for SVG fragments. Anything else drops the declaration.
 
 ## CSS at-rules (`css.ts`)
@@ -144,7 +144,7 @@ Exactly these 18 families, spelled like this:
 
 ## Public-text warnings
 
-Text in `card.html` is public to anyone with the link. The cleaner warns (`public.phone`, `public.email`) when the card's text or title contains something shaped like a phone number or an email address. It doesn't remove them. Keep them in `contact.json`, which stays private: only someone you hand your card to in person receives it.
+Text in `card.html` is public to anyone with the link. The cleaner warns (`public.phone`, `public.email`) when the card's text or title contains something shaped like a phone number or an email address. It doesn't remove them. Keep them in the app's Details, which stay private: only someone you hand your card to in person receives it.
 
 ## `contact.json` (`contact.ts`)
 
@@ -164,4 +164,4 @@ Unknown keys are rejected at every level. Strings are trimmed; control and bidi-
 | `a11y.summary` | yes | 1–300 characters describing what the card looks like |
 | `remixed_from` | | a 64-hex card digest. Leave it out; `null` is rejected. |
 
-The app adds your handle and seals the contact at publish, so don't include `handle` or `scrollodex` keys: they're rejected as unknown.
+The app adds your handle and commits to the contact at publish, so don't include `handle` or `scrollodex` keys: they're rejected as unknown.

@@ -31,11 +31,12 @@ export interface CardStageOptions {
 export type StageEvent = 'ready' | 'killed' | 'tap' | 'flip';
 
 const BACK_RULE = /\[\s*data-face\s*[~|^$*]?=\s*["']?back\b/i;
+const BACK_SECTION = /<section\b[^>]*\sdata-face="back"/i;
 const TAP_MS = 350;
 
 /** True when the card's CSS styles a back face (SCF-0 §2.3). */
 export function hasBackFace(html: string): boolean {
-  return BACK_RULE.test(html);
+  return BACK_RULE.test(html) || BACK_SECTION.test(html);
 }
 
 /** A cheap static face drawn by the host: the bone fallback, and the stand-in for cards not yet loaded. */
@@ -143,6 +144,8 @@ export class CardStage implements Steppable {
         this.frames[face] = new CardFrame(fw, b, {
           face,
           fonts: this.o.fonts,
+          // Reduced motion covers the card's own CSS too: an infinite animation would never stop.
+          still: this.reduce,
           onReady: face === 'front' ? () => this.setState('live') : undefined,
           onFail: (why) => this.fail(why),
         });

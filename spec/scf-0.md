@@ -1,14 +1,14 @@
-# Scrollodex Card Format, version 0 (SCF-0)
+# Carte Card Format, version 0 (SCF-0)
 
-> Licensed under [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/). You may implement, copy and adapt this spec with attribution. "Scrollodex" is a trademark. Implementations may say "compatible with the Scrollodex Card Format" but may not call themselves Scrollodex.
+> Licensed under [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/). You may implement, copy and adapt this spec with attribution. "Carte" is a trademark. Implementations may say "compatible with the Carte Card Format" but may not call themselves Carte.
 
 The key words MUST, MUST NOT, REQUIRED, SHOULD, SHOULD NOT and MAY are to be read as in RFC 2119.
 
-A **card** is a small signed bundle with two parts: a static piece of art (`card.html` plus optional `images/`) and a private contact record (`contact.json`). The art is public. The contact is never published: the bundle carries only a salted commitment to it (§7). A **host** is any program that renders cards: the Scrollodex apps, the web viewer, or `scrollodex dev`. **`canon()`** is the canonicalization pipeline (sanitize, minify, serialize) in §6, implemented by `canonHtml` in `@scrollodex/canon`. Everything a host renders has passed through it.
+A **card** is a small signed bundle with two parts: a static piece of art (`card.html` plus optional `images/`) and a private contact record (`contact.json`). The art is public. The contact is never published: the bundle carries only a salted commitment to it (§7). A **host** is any program that renders cards: the Carte apps, the web viewer, or `carte dev`. **`canon()`** is the canonicalization pipeline (sanitize, minify, serialize) in §6, implemented by `canonHtml` in `@carte/canon`. Everything a host renders has passed through it.
 
 A card does nothing. It is a picture made of HTML and CSS. No script runs in a card document, not even the host's. A card has no links, no forms, no input and no network. Everything that moves in response to the viewer (tilt, flip, glare, foil) is drawn by the host outside the card (§4).
 
-The reference implementation is `@scrollodex/canon` (canonicalization, contact validation, digest, signatures, pointers) and `@scrollodex/card` (verification and rendering), with canon version `CANON_VERSION = 1`. Where a rule below is stated as a constant or pattern, it is the value in that code.
+The reference implementation is `@carte/canon` (canonicalization, contact validation, digest, pointers) and `@carte/card` (verification and rendering), with canon version `CANON_VERSION = 1`. Where a rule below is stated as a constant or pattern, it is the value in that code.
 
 ## 1. Bundle
 
@@ -78,6 +78,7 @@ The card's viewport is a fixed box in CSS pixels: **700×400 for landscape** (1.
 | `scrollodex:finish` | `matte` \| `gloss` \| `foil` \| `holo` \| `emboss` | `matte` | The host-drawn surface finish (§4.2) |
 | `scrollodex:finish-mask` | `images/<name>` | none: the finish covers the whole card | Limits the finish to the mask's opaque areas (§4.2). Counts toward the 6-image budget. |
 | `scrollodex:background` | a CSS colour matching `COLOR_RE` (below) | the host's default | Painted by the host behind the frames and on the fallback face |
+| `scrollodex:summary` | 1–300 characters, no control characters | none | What the card looks like, front and back, for screen readers and search (`meta.summary`) |
 
 `COLOR_RE` is `^(?:#[0-9a-f]{3,8}|[a-z]{3,24}|(?:rgb|rgba|hsl|hsla|hwb|lab|lch|oklab|oklch)\([0-9a-z.,%\s/+-]{1,64}\))$`, case-insensitive: a hex colour of 3 to 8 digits, a bare colour word, or one of those functions. `canon()` stores the value lowercased. `var()`, `url()` and every other function are rejected. The reference host's default is `#f3efe6`.
 
@@ -85,10 +86,13 @@ The card's viewport is a fixed box in CSS pixels: **700×400 for landscape** (1.
 
 ### 2.3 Faces
 
-- The host renders the same `card.html` twice: once as the front, and once with `data-face="back"` on the root `<html>` element as the back. The two frames sit back-to-back in 3D. The front rendering has no `data-face` attribute.
-- Authors put content on the back with `[data-face="back"]` selectors, for example `html[data-face="back"] .front { display: none }`.
-- `data-face` is reserved for the host: `canon()` removes it from every element (`attr.data_face`).
-- A card whose canonical HTML contains no `[data-face="back"]`-style attribute selector (the pattern `\[\s*data-face\s*[~|^$*]?=\s*["']?back\b`, case-insensitive) flips to the host's own back, drawn by the host.
+Two shapes are valid. The **proof sheet** (canon 2, the authoring shape) is what the skill teaches and what every example uses; the **single-body** shape (canon 1) still verifies and renders.
+
+**Proof sheet.** `<body>` holds exactly one `<section data-face="front">` and, optionally, one `<section data-face="back">`, and nothing else. Each section is a whole face, laid out for the viewport box (§2.1). `canon()` keeps `data-face` on those two sections only (anything else in `<body>` is removed, `proof.body`; a second section of the same face is removed, `proof.duplicate`; `data-face` anywhere else is removed, `attr.data_face`) and sets `meta.sections = true`. The host renders the file twice and, in each frame, sizes both sections to the box and hides the other one with one injected rule. A file with no back section flips to the host's own back.
+
+Two more things make the file a preview of itself anywhere HTML renders, and both are left out at publish and reported as information, not change: a `<link rel="stylesheet">` to `https://fonts.googleapis.com/` for the library families the card uses (`proof.fonts`: the host ships the same fonts as `data:`), and a `<style data-proof>` block that lays the faces out side by side (`proof.style`).
+
+**Single body.** The host renders the same `card.html` twice: once as the front, and once with `data-face="back"` on the root `<html>` element as the back. Authors put content on the back with `[data-face="back"]` selectors. A card whose canonical HTML has neither a back section nor a `[data-face="back"]`-style selector flips to the host's own back.
 
 ### 2.4 What a card can use
 
@@ -97,15 +101,15 @@ The card's viewport is a fixed box in CSS pixels: **700×400 for landscape** (1.
 - **Motion:** `@keyframes` animations and transitions that run on their own. Hosts turn them off in still renderings (§4.3).
 - **Media:** `<img>`, `<picture>`/`<source>` and CSS `url()`, `image-set()` and `cross-fade()` pointing at card images, plus inline `<svg>` within the SVG subset (§6.2).
 - **Scheme:** `@media (prefers-color-scheme: dark|light)`, `(prefers-reduced-motion: reduce|no-preference)` and `(orientation: portrait|landscape)`.
-- **Fonts:** Scrollodex font library families (§2.5).
+- **Fonts:** Carte font library families (§2.5).
 
 A card cannot use script, links, forms, inputs, interaction pseudo-classes such as `:hover`, `:focus` or `:checked` (the host captures all input), sensors, storage, `@font-face`, `@import`, or anything that loads from outside its bundle.
 
 ### 2.5 Font library
 
-Cards set type with the Scrollodex font library: a fixed set of open-licensed families that every host ships. Authors write `font-family: "Bodoni Moda", serif` (or name the family in the `font` shorthand). `canon()` never emits `@font-face`. It records the library families a card names, matched case-insensitively and spelled as below, in `meta.fonts` (sorted), and the host injects those faces as `data:` fonts in its own `<style>` right after the CSP meta (§5.2), so no font request ever leaves the device.
+Cards set type with the Carte font library: a fixed set of open-licensed families that every host ships. Authors write `font-family: "Bodoni Moda", serif` (or name the family in the `font` shorthand). `canon()` never emits `@font-face`. It records the library families a card names, matched case-insensitively and spelled as below, in `meta.fonts` (sorted), and the host injects those faces as `data:` fonts in its own `<style>` right after the CSP meta (§5.2), so no font request ever leaves the device.
 
-v0 families (normative; `FONT_LIBRARY` in `@scrollodex/canon`): Instrument Serif, Fraunces, Playfair Display, Bodoni Moda, Cormorant, EB Garamond, Libre Caslon Text, Space Grotesk, Syne, Inter, DM Sans, Archivo Black, IBM Plex Mono, JetBrains Mono, VT323, Press Start 2P, Caveat, Pinyon Script.
+v0 families (normative; `FONT_LIBRARY` in `@carte/canon`): Instrument Serif, Fraunces, Playfair Display, Bodoni Moda, Cormorant, EB Garamond, Libre Caslon Text, Space Grotesk, Syne, Inter, DM Sans, Archivo Black, IBM Plex Mono, JetBrains Mono, VT323, Press Start 2P, Caveat, Pinyon Script.
 
 Every author `@font-face` rule is removed and reported (`css.font_face`). A `font-family` naming any other family is kept, reported as a warning (`font.not_in_library`), and does not render. Generic families (`serif`, `sans-serif`, `monospace`, `cursive`, `fantasy`, `system-ui`, `ui-serif`, `ui-sans-serif`, `ui-monospace`, `ui-rounded`, `emoji`, `math`, `fangsong`) and CSS-wide keywords are fine.
 
@@ -118,7 +122,7 @@ Every author `@font-face` rule is removed and reported (`css.font_face`). A `fon
 
 ## 3. `contact.json`
 
-`contact.json` is the only source for the contact that gets saved, for collection search, for the links under the card, and for the host's contact chrome. Hosts MUST NOT pull identity, contact or link data out of `card.html`. The normative rules are `validateContact` in `@scrollodex/canon`, restated here. [`contact.schema.json`](./contact.schema.json) (JSON Schema 2020-12) describes the same shape for tooling; it cannot express trimming or phone normalization, so where they differ `validateContact` wins.
+`contact.json` is the only source for the contact that gets saved, for collection search, for the links under the card, and for the host's contact chrome. Hosts MUST NOT pull identity, contact or link data out of `card.html`. The normative rules are `validateContact` in `@carte/canon`, restated here. [`contact.schema.json`](./contact.schema.json) (JSON Schema 2020-12) describes the same shape for tooling; it cannot express trimming or phone normalization, so where they differ `validateContact` wins.
 
 ```json
 {
@@ -158,10 +162,10 @@ Rules that apply to every string:
 - It MUST be a JSON string, well-formed UTF-16 (no lone surrogates).
 - It MUST NOT contain C0 or C1 control characters, DEL, or the bidi embedding, override and isolate characters U+202A–U+202E and U+2066–U+2069. `bio` alone may contain U+000A.
 - It is trimmed of surrounding whitespace. Lengths count code points after trimming. A string that is empty after trimming counts as absent.
-- Unknown keys MUST be rejected at every level, including `handle` and `scrollodex`: the handle is bound by the signature (§8), not by the contact.
+- Unknown keys MUST be rejected at every level, including `handle` and `scrollodex`: the handle is bound by the digest (§8), not by the contact.
 - An array over its item limit rejects the contact. Arrays that end up empty, and absent optional fields, are omitted from the validated contact.
 
-The **canonical contact** is `jcs(validated contact)` (`canonContact`, §8.2). That is the form committed to (§7) and the form a full-scope redeem returns.
+The **canonical contact** is `jcs(validated contact)` (`canonContact`, §8.1). That is the form committed to (§7) and the form a full-scope redeem returns.
 
 ## 4. What the host does
 
@@ -205,13 +209,13 @@ Where the platform lets it measure these, a host SHOULD kill a card whose render
 - makes its render process unresponsive, or terminates it, or
 - exceeds the host's memory ceiling (SHOULD be ≥ 64 MiB).
 
-A host MUST also kill a card whose digest or handle appears on the signed blocklist (§8.7).
+A host MUST also kill a card whose digest or handle appears on the signed blocklist (§8.5).
 
 ## 5. Rendering
 
 ### 5.1 Verify, then build
 
-A host MUST verify a card (§8.7) before building anything from it, and MUST NOT render bytes that failed. Only after verification are the images turned into `data:` URIs of the verified bytes: `data:image/webp;base64,…` (or `image/png` for a `.png` path).
+A host MUST verify a card (§8.5) before building anything from it, and MUST NOT render bytes that failed. Only after verification are the images turned into `data:` URIs of the verified bytes: `data:image/webp;base64,…` (or `image/png` for a `.png` path).
 
 ### 5.2 The frame document
 
@@ -241,7 +245,7 @@ The host builds one document per face (`buildSrcdoc`) from the verified canonica
 
 ### 5.3 CSP and sandbox
 
-`CARD_CSP` is exported verbatim from `@scrollodex/canon`; no other copy exists:
+`CARD_CSP` is exported verbatim from `@carte/canon`; no other copy exists:
 
 ```
 default-src 'none'; img-src data:; style-src 'unsafe-inline'; font-src data:; script-src 'none'; connect-src 'none'; frame-src 'none'; child-src 'none'; worker-src 'none'; object-src 'none'; media-src 'none'; manifest-src 'none'; form-action 'none'; base-uri 'none'
@@ -253,7 +257,7 @@ A host MUST render with JavaScript disabled for card content wherever the platfo
 
 ## 6. Canonicalization
 
-A registry or host MUST canonicalize with the reference implementation, or with one that produces byte-identical output on the conformance corpus. The reference is `canonHtml` in `@scrollodex/canon`; [architecture doc 10](../architecture/10-sanitizer.md) explains the design.
+A registry or host MUST canonicalize with the reference implementation, or with one that produces byte-identical output on the conformance corpus. The reference is `canonHtml` in `@carte/canon`; [architecture doc 10](../architecture/10-sanitizer.md) explains the design.
 
 ### 6.1 Pipeline
 
@@ -280,8 +284,9 @@ canon(html, imageMap) =
 - **Elements kept:** `main section article aside header footer address h1–h6 p div span br hr blockquote q cite em strong b i u s small mark sub sup abbr time ul ol li dl dt dd img picture source figure figcaption`, with `source` only inside `picture`, and an `img` or `source` with no usable `src`/`srcset` removed entirely. The shell elements `html`, `head`, `body`, `title` (the first one, whitespace-collapsed, trimmed, cut to 120 characters) and `style` are consumed and re-emitted in the fixed shape.
 - **Inline SVG:** `svg g defs symbol title desc path rect circle ellipse line polyline polygon text tspan textPath linearGradient radialGradient stop pattern clipPath mask marker filter`, and the `fe*` filter primitives except `feImage`. Inside `text`, only `tspan` and `textPath`; `title` and `desc` keep text only. `<style>` inside SVG is removed.
 - **Rewritten:** `<a>` becomes `<span>`, with its text and global attributes kept and `href` removed.
-- **Removed with their contents:** `script noscript template iframe frame frameset object embed applet param portal form input button select option optgroup textarea output fieldset legend datalist progress meter canvas audio video track map area base link dialog slot math xmp plaintext listing noembed noframes selectedcontent search`, every other `<meta>`, HTML comments, and every SVG element not listed above (including `use`, `image`, `feImage`, `foreignObject`, `a`, `script`, `animate`, `animateTransform`, `animateMotion`, `set`).
-- **Unwrapped** (the tag goes, the children stay): every other HTML element, for example `pre`, `code`, `table`, `nav`, `label`, `details`, `font`, custom elements.
+- **Removed with their contents:** `script noscript template iframe frame frameset object embed applet param portal form input button select option optgroup textarea output fieldset legend datalist progress meter canvas audio video track map area base link dialog slot math xmp plaintext listing noembed noframes selectedcontent search`, every other `<meta>`, HTML comments, and every SVG element not listed above (including `image`, `feImage`, `foreignObject`, `a`, `script`, `animate`, `animateTransform`, `animateMotion`, `set`). `use` survives only with a same-document `href="#id"`.
+- **Kept as layout and text** (canon 2): `table caption colgroup col thead tbody tfoot tr td th pre code kbd samp var del ins bdi bdo wbr`; text inside `pre` keeps its whitespace. A custom element (a hyphenated tag name) becomes a `div` with its attributes (`element.custom`).
+- **Unwrapped** (the tag goes, the children stay): every other HTML element, for example `nav`, `label`, `details`, `font`.
 - **Global attributes:** `class` (tokens matching `[A-Za-z0-9_-]{1,64}`; others dropped), `style` (sanitized as CSS), `id`, `title` (≤ 512), `lang`, `dir` (`ltr`/`rtl`/`auto`), `role` (1–4 lowercase words), `aria-[a-z]{1,40}` and `data-[a-z0-9-]{1,40}` (values ≤ 512; `data-face` removed). Per element: `img` `src srcset alt width height sizes`; `source` `srcset sizes media` (media only `(prefers-color-scheme|orientation: …)`); `ol` `start reversed type`; `li` `value`; `time` `datetime`; `<html>` keeps only `lang` and `dir`. `src`/`srcset` may only reference card images. Every `on*` attribute, `href` and every other attribute is removed.
 - **`id`** is kept exactly as written when it matches `^[a-z][a-z0-9-]{0,31}$`, and removed otherwise (`attr.id_invalid`). Ids are never prefixed or rewritten. `#id` selectors and `url(#id)` references MUST use a valid id.
 - **SVG attributes:** the presentation and geometry attributes of the subset (listed in `SVG_ATTRS`), `class`, `role`, `id` and `aria-*`. No `style=""` on SVG elements. A value containing a backslash, `javascript:`, `expression(` or `data:` is removed; `d` is capped at 32,768 characters; `url()` may only be `url(#id)`; `href`/`xlink:href` survives only on `textPath`, as `#id`.
@@ -344,28 +349,19 @@ contact_commit = sha256hex(utf8("scrollodex-contact-v0\n" + salt + "\n" + jcs(va
 
 - `sha256hex` is lowercase hex of SHA-256. `b64u` is base64url without padding. The salt MUST match `^[A-Za-z0-9_-]{43}$`.
 - The client generates the salt (`randomSalt`) and sends it with the contact to `publish-prepare` over TLS. The registry stores the validated contact and the salt privately, readable only by the service role.
-- `contact_commit` is the `contact` entry of the digest's `files` (§8.3). Without the salt, the commitment reveals nothing, and a raw contact hash is never public.
+- `contact_commit` is the `contact` entry of the digest's `files` (§8.2). Without the salt, the commitment reveals nothing, and a raw contact hash is never public.
 - The registry returns the contact and salt only in a **full-scope** redeem (§9.3), as `contact_json` (the canonical contact) and `salt`. Public lookups and art-scope redeems never include them.
 - A host that receives a contact MUST check that `contact_json` is canonical (`canonContact(JSON.parse(contact_json)) === contact_json`) and that `contact_commit` recomputed from it and the salt equals `files.contact`, or reject it (`verify.contact`). It then validates the contact with `validateContact` before using it.
 
-## 8. Keys, publishing, digest and signature
+## 8. Publishing and the digest
 
-### 8.1 Device keys
+There are no keys and no signatures (removed in v3: the registry is trusted for who owns a handle, and the format does not pretend otherwise). What a host checks is that every byte it renders hashes to what the registry listed for the version, and that `card.html` re-canonicalizes to itself.
 
-- Each device holds an Ed25519 key pair. The reference app generates a non-extractable WebCrypto Ed25519 key where the platform supports it, and otherwise a `@noble/ed25519` key kept in IndexedDB.
-- A signed-in account with a claimed handle registers the key with `account` `{ "action": "register_key", "public_key", "proof", "label"? }`:
-  - `public_key` is the raw 32-byte key, base64url (43 characters). It MUST be a valid curve point and not of small order (`isValidPublicKey`).
-  - `proof` is the 64-byte Ed25519 signature, base64url, over `utf8("scrollodex-key-v0\n" + user_id + "\n" + public_key)` (`keyProofMessage`), where `user_id` is the account's UUID. The registry verifies it before storing the key.
-  - Public keys are unique across the registry. An account has at most 10 unrevoked keys. The registry names each key with a UUID, the `key_id`.
-- `{ "action": "revoke_key", "key_id" }` revokes a key. A revoked key can't commit, and versions it signed can't be made current again.
+### 8.1 JCS
 
-Every signature check uses `verifyEd25519`: strict RFC 8032 verification (`@noble/ed25519` with `zip215: false`), identical in every runtime, rejecting invalid or small-order keys and signatures that aren't 64 bytes.
+`jcs` is RFC 8785 (JSON Canonicalization Scheme) restricted to the values Carte hashes: strings (well-formed, no lone surrogates), safe integers, booleans, `null`, arrays and plain objects. Keys sort by UTF-16 code units and there is no whitespace. Anything else throws. Files are hashed as raw bytes, never as decoded text.
 
-### 8.2 JCS
-
-`jcs` is RFC 8785 (JSON Canonicalization Scheme) restricted to the values Scrollodex signs: strings (well-formed, no lone surrogates), safe integers, booleans, `null`, arrays and plain objects. Keys sort by UTF-16 code units and there is no whitespace. Anything else throws. Files are hashed as raw bytes, never as decoded text.
-
-### 8.3 Digest
+### 8.2 Digest
 
 ```
 files  = { "card.html": sha256hex(card.html bytes),
@@ -374,25 +370,19 @@ files  = { "card.html": sha256hex(card.html bytes),
 digest = sha256hex(utf8(jcs({ scf: 0, canon: CANON_VERSION, handle, files })))
 ```
 
-`scf` is the format major version (`SCF_VERSION = 0`), `canon` the canon version the card was canonicalized with, and `handle` the publishing account's handle. The digest covers the canonical bytes, the canon version, the handle and the contact commitment, so anyone can verify the art without being able to read the contact. The digest names the version everywhere: storage paths, pointers, the blocklist.
+`scf` is the format major version (`SCF_VERSION = 0`), `canon` the canon version the card was canonicalized with, and `handle` the publishing account's handle. The digest covers the canonical bytes, the canon version, the handle and the contact commitment, so anyone can check the art without being able to read the contact. The digest names the version everywhere: storage paths, pointers, the blocklist.
 
-### 8.4 Signature
+### 8.3 One-call publish
 
-```
-message   = utf8("scrollodex-card-v0\n" + digest + "\n" + handle)      signingMessage(digest, handle)
-signature = Ed25519.sign(device_private_key, message)                  64 bytes, base64url, 86 characters
-```
+`publish`: `{ "html", "contact", "salt", "images": [{ "ref", "b64" }], "expected_current"?, "first_origin"? }`, at most 6 images. `ref` is the author's image name in the HTML; `b64` the image bytes to re-encode (§6.6). The registry validates the contact, checks the salt, canonicalizes the HTML (§6), re-encodes every referenced image and checks the 300 KB total, computes `files` and the digest under the caller's handle, uploads the files immutably to `cards/<digest>/`, and then, in one transaction, stores the version and the private contact and moves the account's current card to the digest. With `expected_current`, the move happens only if the current digest still equals it (`current.moved`). It returns `digest`, `handle`, `card_id`, `version_seq`, `previous_digest`, `first_publish`, `canon_version`, `files`, the canonical `html`, every canonical image as base64url in `images`, `meta`, the sanitize `report`, `contact_json`, `external_images`, `size_bytes` and `url`.
 
-### 8.5 Two-step publish
+**The client checks after.** It MUST check that `isCanonical(html)`, that its own `canon()` of the upload equals the returned `html` (no sanitize mismatch), that every returned file hashes to its entry in `files`, that `files.contact` equals the `contact_commit` it computes from its own contact and salt, and that `bundleDigest` recomputed from those bytes equals `digest`. It shows the author the sanitize report and offers **Undo**.
 
-1. **`publish-image`** (optional, one call per image): `{ "b64" }` → `{ "name", "b64", "bytes", "width", "height" }`. The registry re-encodes the image (§6.6) and stages it under the caller.
-2. **`publish-prepare`**: `{ "html", "contact", "salt", "images": [{ "ref", "name" } | { "ref", "b64" }] }`, at most 6 images. `ref` is the author's image name in the HTML; `name` is a staged `publish-image` result; `b64` is an image to re-encode inline. The registry validates the contact, checks the salt, canonicalizes the HTML (§6), checks every referenced image exists and the 300 KB total, computes `files` and the digest under the caller's handle, and stages the canonical bytes for 30 minutes. It returns `prepare_id`, `handle`, `digest`, `canon_version`, `files`, the canonical `html`, every canonical image as base64url in `images`, `meta`, the sanitize `report`, `contact_json`, `external_images`, `size_bytes`, `html_sha` and `expires_at`.
-3. **The client checks, then signs.** It MUST check that `isCanonical(html)`, that every returned file hashes to its entry in `files` and the file lists match, that `files.contact` equals the `contact_commit` it computes from its own contact and salt, and that `bundleDigest` recomputed from those bytes equals `digest`. It signs only on a match, and shows the author a preview rendered from exactly those bytes.
-4. **`publish-commit`**: `{ "prepare_id", "key_id", "digest", "signature", "expected_current"? }`. The registry requires an unrevoked key of the caller, verifies the signature over `signingMessage(digest, handle)`, re-reads the staged bytes and re-checks every hash, `isCanonical`, the contact commitment and the digest, uploads the files immutably to `cards/<digest>/`, and then, in one transaction, consumes the prepare, stores the version and the private contact, and moves the account's current card to the digest. With `expected_current`, the move happens only if the current digest still equals it (`current.moved`). It returns `{ "digest", "handle", "url" }`, where `url` is the public card page (§9.2).
+`publish` with only `{ "digest" }` re-points the account's current card at a version it already published (Undo, or putting a taken-down card back up); any other digest is `version.unknown`.
 
-Committing a digest the caller already published, with no live prepare, only moves the current card back to that version, and only if the key that signed it is still unrevoked. The author signs what they saw, and what they saw is what everyone else sees.
+The registry also writes `heads/<card_id>.json` = `{ "seq", "digest" }` to the public bucket on every publish, so a holder can check for a newer version with one cacheable GET (§9.4).
 
-### 8.6 Worked example
+### 8.4 Worked example
 
 Computed with the reference bundle (`supabase/functions/_shared/canon.js`, canon version 1). The image is the 34-byte 1×1 WebP `UklGRhoAAABXRUJQVlA4TA0AAAAvAAAAEAcQERGIiP4HAA==` (base64), uploaded as `images/photo.webp`. The key is the RFC 8032 test 1 secret key `9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60`. The salt is 32 bytes of `0x07`.
 
@@ -441,30 +431,21 @@ image           sha256 = 86be52bdb7547413cafb3ed175a806a798c65de98b40849e0b974c4
 
 jcs(digest input) = {"canon":1,"files":{"card.html":"7ff0f087ceec1075a58d02691cf03ac576f6f4cda2a79187ddfcd4f8e2184e5c","contact":"5501872dbd48b1f15a5a986d99c5ffb76d6ff4b15778c5a021cd05d103107aa9","images/86be52bdb754.webp":"86be52bdb7547413cafb3ed175a806a798c65de98b40849e0b974c47d187de65"},"handle":"harsh","scf":0}
 digest          = aff37d6ee0205d6f6aa7b113d090489324657329d7a3c863b1eb6b518bc21375
-
-public_key      = 11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo
-message         = "scrollodex-card-v0\naff37d6ee0205d6f6aa7b113d090489324657329d7a3c863b1eb6b518bc21375\nharsh"
-signature       = MTQ6MQUTZb19DZ6E2lPIDQ_GD-FZTyn4SY9n_q4mmMX-aWTaFwE7nUIHTCAypVshI0ZX4FHMos6heKLlt_Z3Ag
-
-key proof, for user_id 00000000-0000-4000-8000-000000000001:
-message         = "scrollodex-key-v0\n00000000-0000-4000-8000-000000000001\n11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"
-proof           = iVZ-Vv3HK_0sa5WkAfmArM2Pvi5Y5jeroSPnoz1Qryi5YuhVEifhGIdAox-ewE1wJZ3shciniolgSVTQMxRkAw
 ```
 
-### 8.7 Verification (hosts)
+### 8.5 Verification (hosts)
 
-Given a card record (`handle`, `display_name`, `digest`, `files`, `meta`, `signature`, `public_key`, `canon_version`, and for a full-scope redeem `contact_json` and `salt`), a host MUST, in this order (`verifyAndInline`):
+Given a card record (`handle`, `display_name`, `digest`, `files`, `meta`, `canon_version`, and for a full-scope redeem `contact_json`, `salt` and `card_id`), a host MUST, in this order (`verifyAndInline`):
 1. Check the record's shape: `digest` is 64 hex; `files` has `card.html`; every other entry is `contact` or a `FILE_PATH_RE` path; every value is 64 hex; at most 6 images (`verify.files`, `verify.size`).
 2. Recompute `sha256hex(jcs({ scf: 0, canon: canon_version, handle, files }))` and require it to equal `digest` (`verify.digest`).
-3. Verify `signature` over `signingMessage(digest, handle)` with `public_key` using `verifyEd25519` (`verify.signature`). `public_key` is the registered key that signed the version.
-4. With a contact, check it as in §7 (`verify.contact`).
-5. Fetch every file from `cards/<digest>/<path>` and require its SHA-256 to equal its entry in `files` (`verify.fetch`, `verify.hash`), then check the size limits of §1.2 (`verify.size`).
-6. Decode `card.html` as strict UTF-8 and re-canonicalize it (§6.7) (`verify.canon`).
-7. Only then inline the images and build the frame documents (§5).
+3. With a contact, check it as in §7 (`verify.contact`).
+4. Fetch every file from `cards/<digest>/<path>` and require its SHA-256 to equal its entry in `files` (`verify.fetch`, `verify.hash`), then check the size limits of §1.2 (`verify.size`).
+5. Decode `card.html` as strict UTF-8 and re-canonicalize it (§6.7) (`verify.canon`).
+6. Only then inline the images and build the frame documents (§5).
 
 If any step fails, the host renders nothing from the bundle and shows only its own chrome.
 
-The registry never serves a version whose digest or handle is blocklisted, or that isn't live. It also publishes a signed blocklist at `blocklist`: `{ "issued_at", "entries": [{ "digest"?, "handle"? }], "signature" }`, where `signature` is the platform's Ed25519 signature, base64url, over `utf8(jcs({ issued_at, entries }))`. A host SHOULD sync it, verify it with the platform public key, and kill any card it lists (§4.4).
+The registry never serves a version whose digest or handle is blocklisted, or that isn't live. It also publishes a signed blocklist at `blocklist`: `{ "issued_at", "entries": [{ "digest"?, "handle"? }], "signature" }`, where `signature` is the platform's Ed25519 signature, base64url, over `utf8(jcs({ issued_at, entries }))`. A host SHOULD sync it and kill any card it lists (§4.4).
 
 ## 9. Handles, public cards and exchange
 
@@ -473,11 +454,11 @@ The registry never serves a version whose digest or handle is blocklisted, or th
 - A handle matches `^[a-z0-9_]{2,24}$` (`HANDLE_RE`). An account claims one with `account` `{ "action": "claim_handle", "handle", "display_name" }`; `display_name` is 1–80 characters with no control or bidi-override characters.
 - Reserved handles (platform words, roles and common brand names, `RESERVED_HANDLES`) and retired handles can't be claimed.
 - **Rename (D32).** A handle can be renamed at most once every 30 days. Renaming re-signs the current card under the new handle. The old handle is retired for good (`retired_handles`) and can never be claimed again, by anyone. `/@old` redirects to `/@new` for 90 days, then reports that the person moved on. Collected copies keep working, because a collection keys by account, not by handle, and show the new handle on their next refresh.
-- The signature binds the handle per version (§8.4), so every past version stays verifiable under the handle it was signed with.
+- The digest binds the handle per version (§8.2), so every past version stays checkable under the handle it was published with.
 
 ### 9.2 Public card
 
-The public card page is `{APP_ORIGIN}/@<handle>`, where `APP_ORIGIN` is the registry's configured app origin (default `https://scrollodex.app`). Its data comes from `public-card`: `GET ?handle=<handle>`, rate-limited to 60 requests a minute per IP and cacheable for 60 seconds. It returns one card record, never a list: `{ "handle", "display_name", "digest", "files", "meta", "signature", "public_key", "canon_version" }`. It never includes the contact.
+The public card page is `{APP_ORIGIN}/@<handle>`, where `APP_ORIGIN` is the registry's configured app origin (default `https://mycarte.art`). Its data comes from `public-card`: `GET ?handle=<handle>`, rate-limited to 60 requests a minute per IP and cacheable for 60 seconds. It returns one card record, never a list: `{ "handle", "display_name", "digest", "files", "meta", "canon_version", "account_id", "version_seq" }`. It never includes the contact or the card id.
 
 ### 9.3 Exchange
 
@@ -490,13 +471,17 @@ pointer = {APP_ORIGIN}/x/<token>
 
 - **Issue** (`exchange-issue`, `POST`, 300 per hour per user). With `{ "handle" }`, any signed-in user, including an anonymous one, gets an **art-scope** token for that handle's public card. With no handle, a non-anonymous owner gets a **full-scope** token for their own current card. The response is `{ "token", "pointer", "expires_at", "scope" }`. A token lives 90 seconds; the registry stores only `sha256hex(token)`.
 - **Redeem** (`exchange-redeem`, `POST { "token" }`, 120 per hour per user). A token is single-use across people and idempotent for the same redeemer within its lifetime. The response is the card record of §9.2 plus `"scope"`, and for a full-scope token also `"contact_json"` (the canonical contact) and `"salt"` (§7). An expired token answers `token.expired`, a token someone else redeemed `token.used`, an unknown one `token.unknown`, and a blocked or non-live card `card.blocked`. Token rows are deleted shortly after expiry.
-- **Parsing.** A tap, QR code or link carries only a pointer. `parsePointer` accepts a string of at most 96 characters that matches `POINTER_RE`, `^https:\/\/scrollodex\.app\/x\/[A-Za-z0-9_-]{22}$`, and returns the token. A development origin (`http` or `https` on `localhost` or `127.0.0.1`, with an optional port) is accepted only when the caller passes it explicitly as `{ devOrigin }`. Anything else is dropped without further parsing.
+- **Parsing.** A tap, QR code or link carries only a pointer. `parsePointer` accepts a string of at most 96 characters that matches `POINTER_RE`, `^https:\/\/mycarte\.art\/x\/[A-Za-z0-9_-]{22}$`, and returns the token. A development origin (`http` or `https` on `localhost` or `127.0.0.1`, with an optional port) is accepted only when the caller passes it explicitly as `{ devOrigin }`. Anything else is dropped without further parsing.
 - The reference app shows a received card face-down and redeems only when the recipient taps it, so link unfurlers and in-app browsers can't burn the token. It verifies (§8.7) before rendering.
+
+### 9.4 Updates
+
+A full-scope redeem returns `card_id`: 16 random bytes as 22-character base64url, the card's id. Only holders know it. `GET cards/heads/<card_id>.json` from the public bucket returns `{ "seq", "digest" }` for the current version (cached for a minute; 404 once the author has reset who gets updates or taken the card down). `card-refresh` `{ "card_id" }` returns the current version's record with `contact_json` and `salt`, exactly as a full redeem would. The registry keeps no record of who holds which id.
 
 ## 10. Versioning
 
 - `scf` in the digest is the format **major** version. Hosts MUST refuse majors they don't know and show chrome only.
 - `CANON_VERSION` is the canonicalizer's version. Any change to canonical output bytes bumps it. Each version records the canon version it was published with, the digest binds it, and hosts re-check under it (§6.7).
 - Additive changes ship as minor revisions of this document within SCF-0. That covers new optional contact fields, new `scrollodex:*` meta names, new finishes and new font library families. Hosts MUST treat an unknown finish as `gloss` and an unknown meta name as absent.
-- A change that loosens `canon()`, the CSP or the sandbox, changes the digest, the contact commitment or the signature, or makes an optional field required is a new major.
+- A change that loosens `canon()`, the CSP or the sandbox, changes the digest or the contact commitment, or makes an optional field required is a new major.
 - A card published under SCF-0 renders the same in every SCF-0 host that shares its canon version. Allowlists only grow within a major if the conformance corpus proves the addition is safe.

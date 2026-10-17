@@ -1,4 +1,3 @@
-import * as ed from '@noble/ed25519';
 import { CanonError } from './errors.js';
 import { jcs } from './jcs.js';
 import { CANON_VERSION, SCF_VERSION } from './limits.js';
@@ -80,46 +79,3 @@ export async function digestFromHashes(input: { handle: string; files: Record<st
   }
   return sha256hex(jcs({ scf: SCF_VERSION, canon: CANON_VERSION, handle: input.handle, files: input.files }));
 }
-
-export function signingMessage(digest: string, handle: string): string {
-  return `scrollodex-card-v0\n${digest}\n${handle}`;
-}
-
-export function keyProofMessage(userId: string, publicKeyB64u: string): string {
-  return `scrollodex-key-v0\n${userId}\n${publicKeyB64u}`;
-}
-
-/** 32 bytes, a valid curve point, and not of small order. */
-export function isValidPublicKey(publicKeyRaw: Uint8Array): boolean {
-  if (!(publicKeyRaw instanceof Uint8Array) || publicKeyRaw.length !== 32) return false;
-  try {
-    const p = ed.Point.fromBytes(publicKeyRaw, false);
-    return !p.isSmallOrder();
-  } catch {
-    return false;
-  }
-}
-
-/** Strict RFC 8032 verification (noble, zip215: false), identical in every runtime. */
-export async function verifyEd25519(publicKeyRaw: Uint8Array, message: string, signature: Uint8Array): Promise<boolean> {
-  if (!isValidPublicKey(publicKeyRaw) || !(signature instanceof Uint8Array) || signature.length !== 64) return false;
-  try {
-    return await ed.verifyAsync(signature, enc.encode(message), publicKeyRaw, { zip215: false });
-  } catch {
-    return false;
-  }
-}
-
-/** Fallback signer for runtimes without WebCrypto Ed25519. The secret key is 32 raw bytes. */
-export const ed25519 = {
-  async generate(): Promise<{ secretKey: Uint8Array; publicKey: Uint8Array }> {
-    const secretKey = ed.utils.randomSecretKey();
-    return { secretKey, publicKey: await ed.getPublicKeyAsync(secretKey) };
-  },
-  async sign(secretKey: Uint8Array, message: string): Promise<Uint8Array> {
-    return ed.signAsync(enc.encode(message), secretKey);
-  },
-  async publicKey(secretKey: Uint8Array): Promise<Uint8Array> {
-    return ed.getPublicKeyAsync(secretKey);
-  },
-};

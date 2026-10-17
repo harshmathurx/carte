@@ -81,7 +81,12 @@ function linkUrl(errs: Errs, path: string, v: unknown): string | undefined {
     return u.href;
   }
   if (u.protocol === 'mailto:') {
-    const addr = decodeURIComponent(u.pathname);
+    let addr = '';
+    try {
+      addr = decodeURIComponent(u.pathname);
+    } catch {
+      // A broken %-escape: not an address, so the line below reports it like any other.
+    }
     if (!EMAIL.test(addr) || u.search) {
       errs.push(`${path} must be a plain mailto: address`);
       return undefined;

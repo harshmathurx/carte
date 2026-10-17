@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canonHtml } from '@scrollodex/canon';
+import { canonHtml } from '@carte/canon';
 import { CardStage } from '../src/stage';
 import { loop } from '../src/spring';
 import type { VerifiedBundle } from '../src/types';

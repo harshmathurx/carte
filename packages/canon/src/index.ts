@@ -15,11 +15,6 @@ export {
   imageName,
   bundleDigest,
   digestFromHashes,
-  signingMessage,
-  keyProofMessage,
-  isValidPublicKey,
-  verifyEd25519,
-  ed25519,
   FILE_PATH_RE,
 } from './crypto.js';
 export { POINTER_RE, HANDLE_RE, parsePointer } from './pointer.js';

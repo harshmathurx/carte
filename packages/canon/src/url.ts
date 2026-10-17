@@ -9,7 +9,8 @@ export type UrlClass =
   | { kind: 'bad' };
 
 const DATA_RE = /^data:(image\/(?:png|jpeg|jpg|webp|gif|avif|svg\+xml))(?:;[a-z0-9=._-]+)*(;base64)?,/i;
-const ID_RE = /^[a-z][a-z0-9-]{0,31}$/;
+/** Ids as agents and tools write them (`Layer_1`, `path-12_3`); never rewritten, so url(#id) keeps working. */
+const ID_RE = /^[A-Za-z_][A-Za-z0-9_-]{0,63}$/;
 
 /** Strip ASCII whitespace at the ends and control characters/whitespace anywhere before the first ':' or '/' */
 export function normalizeUrl(raw: string): string {

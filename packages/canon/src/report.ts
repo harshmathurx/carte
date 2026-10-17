@@ -20,7 +20,6 @@ type Bucket = 'removed' | 'rewritten' | 'warnings';
 
 const MESSAGES: Record<string, (n: number) => string> = {
   'element.script': (n) => `Removed ${plural(n, 'script')}. Cards don't run code; your animations still work.`,
-  'element.style_in_svg': (n) => `Removed ${plural(n, 'style block')} inside SVG. Style SVG from the card's main CSS.`,
   'element.iframe': (n) => `Removed ${plural(n, 'embedded frame')}. A card can't contain other pages.`,
   'element.form': (n) => `Removed ${plural(n, 'form control')}. Cards can't take input.`,
   'element.media': (n) => `Removed ${plural(n, 'audio or video element')}. Cards are silent pictures.`,
@@ -33,7 +32,14 @@ const MESSAGES: Record<string, (n: number) => string> = {
   'svg.dropped': (n) => `Removed ${plural(n, 'SVG element')} that can reference or run things (use, image, animate, foreignObject).`,
   'attr.handler': (n) => `Removed ${plural(n, 'event handler')} (like onclick or onerror).`,
   'attr.dropped': (n) => `Removed ${plural(n, 'attribute')} cards don't support.`,
-  'attr.data_face': (n) => `Removed ${plural(n, 'data-face attribute')}; the app sets that one.`,
+  'attr.data_face': (n) => `Removed ${plural(n, 'data-face attribute')} off elements that aren't the two face sections.`,
+  'css.unknown_property': (n) => `Removed ${plural(n, 'CSS declaration')} whose property isn't CSS.`,
+  'proof.fonts': () => `Left out the proof sheet's font link. It's for your preview; the app ships these fonts.`,
+  'proof.style': () => `Left out the proof sheet's layout style. It's for your preview only.`,
+  'proof.body': (n) => `Removed ${plural(n, 'element')} outside the two face sections. A proof sheet's body holds only the front and the back.`,
+  'proof.duplicate': (n) => `Removed ${plural(n, 'extra face section')}. One front and one back.`,
+  'element.custom': (n) => `Turned ${plural(n, 'custom element')} into plain containers (the content is kept).`,
+  'svg.use': (n) => `Removed ${plural(n, '<use>')} that pointed outside the card. Only #id references within the card work.`,
   'attr.id_invalid': (n) => `Removed ${plural(n, 'id')} that didn't match the allowed pattern.`,
   'attr.href': (n) => `Removed ${plural(n, 'link target')}.`,
   'link.to_span': (n) => `Turned ${plural(n, 'link')} into plain text. Your links live in your contact and show up under the card.`,
@@ -43,10 +49,9 @@ const MESSAGES: Record<string, (n: number) => string> = {
   'image.bad_url': (n) => `Removed ${plural(n, 'image URL')} that wasn't allowed.`,
   'css.at_rule': (n) => `Removed ${plural(n, 'CSS at-rule')} (like @import) that cards can't use.`,
   'css.import': (n) => `Removed ${plural(n, '@import')}. Paste the CSS in directly.`,
-  'css.font_face': (n) => `Removed ${plural(n, '@font-face rule')}. Pick a family from the Scrollodex font library instead.`,
+  'css.font_face': (n) => `Removed ${plural(n, '@font-face rule')}. Pick a family from the Carte font library instead.`,
   'css.media': (n) => `Removed ${plural(n, '@media block')} with conditions cards don't support.`,
   'css.dangerous': (n) => `Removed ${plural(n, 'CSS declaration')} that could run or load something.`,
-  'css.unknown_property': (n) => `Removed ${plural(n, 'CSS declaration')} with a property browsers don't know.`,
   'css.url': (n) => `Removed ${plural(n, 'CSS url()')} pointing outside the card.`,
   'css.function': (n) => `Removed ${plural(n, 'CSS declaration')} using image functions cards don't support (image-set, cross-fade, element).`,
   'css.dead_selector': (n) => `Removed ${plural(n, 'CSS rule')} for hover, focus or clicks. Cards don't receive touches; the app handles those.`,
@@ -54,10 +59,9 @@ const MESSAGES: Record<string, (n: number) => string> = {
   'css.position': (n) => `Changed position: fixed/sticky to absolute in ${plural(n, 'place')}.`,
   'css.important': (n) => `Removed !important from ${plural(n, 'animation-play-state declaration')}; the app pauses animations off-screen.`,
   'meta.invalid': (n) => `Removed ${plural(n, 'scrollodex meta tag')} with an unsupported value.`,
-  'font.not_in_library': (n) => `${plural(n, 'font family', 'font families')} aren't in the Scrollodex font library and will fall back.`,
+  'font.not_in_library': (n) => `${plural(n, 'font family', 'font families')} aren't in the Carte font library and will fall back.`,
   'public.phone': () => `Heads up: a phone number appears in the card art, where anyone can see it. Put it in your contact instead.`,
   'public.email': () => `Heads up: an email address appears in the card art, where anyone can see it. Put it in your contact instead.`,
-  'comment.removed': (n) => `Removed ${plural(n, 'comment')}.`,
 };
 
 function plural(n: number, one: string, many?: string): string {

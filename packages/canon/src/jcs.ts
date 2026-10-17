@@ -1,5 +1,5 @@
 /**
- * RFC 8785 canonical JSON, restricted to the values Scrollodex signs:
+ * RFC 8785 canonical JSON, restricted to the values Carte signs:
  * strings, finite integers, booleans, null, arrays and plain objects.
  * Keys sort by UTF-16 code units (JavaScript's default string order).
  */

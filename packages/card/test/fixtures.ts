@@ -1,16 +1,13 @@
 import {
   CANON_VERSION,
-  b64u,
   bundleDigest,
   canonContact,
   canonHtml,
   contactCommit,
-  ed25519,
   randomSalt,
   sha256hex,
-  signingMessage,
   type Contact,
-} from '@scrollodex/canon';
+} from '@carte/canon';
 
 export const CONTACT: Contact = {
   name: { display: 'Mika Tan', sort: 'Tan, Mika' },
@@ -33,18 +30,16 @@ export async function makeFixture(opts: { html?: string; handle?: string } = {})
   const commit = await contactCommit(CONTACT, salt);
   const digest = await bundleDigest({ handle, files: { 'card.html': htmlBytes, [imgPath]: img }, contactCommit: commit });
   const files = { 'card.html': await sha256hex(htmlBytes), [imgPath]: await sha256hex(img), contact: commit };
-  const key = await ed25519.generate();
-  const signature = b64u.encode(await ed25519.sign(key.secretKey, signingMessage(digest, handle)));
   const store: Record<string, Uint8Array> = { 'card.html': htmlBytes, [imgPath]: img };
   return {
-    handle, html, imgPath, store, key, salt,
+    handle, html, imgPath, store, salt,
     fetch: async (p: string) => {
       const b = store[p];
       if (!b) throw new Error('404');
       return b;
     },
     expected: {
-      digest, files, signature, publicKey: b64u.encode(key.publicKey), handle,
+      digest, files, handle,
       canonVersion: CANON_VERSION, displayName: 'Mika Tan',
       contact: { json: canonContact(CONTACT), salt },
     },

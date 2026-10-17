@@ -1,14 +1,14 @@
-# Scrollodex, open
+# Carte, open
 
 *Hand someone your card again.*
 
-Scrollodex brings back the business card: yours, designed by you or your agent, handed over with a tap. This repository holds everything open about it:
+Carte brings back the business card: yours, designed by you or your agent, handed over with a tap. This repository holds everything open about it:
 - the card format
 - the sanitizer that makes cards safe
 - the renderer that makes them feel physical
 - a gallery of example cards
 
-The app and service live at [scrollodex.app](https://scrollodex.app). There are no ads and no tracking, and nobody learns who looked at their card.
+The app and service live at [mycarte.art](https://mycarte.art). There are no ads and no tracking, and nobody learns who looked at their card.
 
 ## The format in 60 seconds
 
@@ -25,20 +25,20 @@ images/        up to 6 images, re-encoded to WebP by the publisher.
   - it tilts and flips the card, and draws a finish on top: `matte`, `gloss`, `foil`, `holo` or `emboss`, optionally clipped by a mask like spot foil
   - it renders the back from the same HTML with `<html data-face="back">`
 - **Meta tags** set the rest: `scrollodex:orientation`, `scrollodex:finish`, `scrollodex:finish-mask` and `scrollodex:background`.
-- **Every card is signed and content-addressed.** Hosts verify every hash and the author's Ed25519 signature, then render the bytes in an `<iframe sandbox="">` with a CSP that allows no script and no network.
+- **Every card is content-addressed.** Hosts check every hash on the device (there is no signature), then render the bytes in an `<iframe sandbox="">` with a CSP that allows no script and no network.
 
 The full spec is [`spec/scf-0.md`](spec/scf-0.md), and [`spec/contact.schema.json`](spec/contact.schema.json) describes `contact.json`.
 
 ## Ask your agent
 
-Any coding agent (Claude Code, Codex, Cursor and the rest) can design your card. Point it at [`skills/scrollodex-card/SKILL.md`](skills/scrollodex-card/SKILL.md), or at [`llms.txt`](llms.txt), and say "make my Scrollodex card". It'll ask a few questions about you, then hand you a folder with `card.html`, `contact.json` and any images. In the app, go to **Make → Bring it from your agent** and paste or drop it in.
+Any coding agent (Claude Code, Codex, Cursor and the rest) can design your card. Point it at [`skills/carte-card/SKILL.md`](skills/carte-card/SKILL.md), or at [`llms.txt`](llms.txt), and say "make my Carte card". It'll ask a few questions about you, then hand you a folder with `card.html`, `contact.json` and any images. In the app, go to **Make → Bring it from your agent** and paste or drop it in.
 
 ## Packages
 
 | Package | What it does |
 |---|---|
-| [`@scrollodex/canon`](packages/canon) | Sanitizer, minifier, canonical digest, contact validation, Ed25519 verification. Pure TypeScript; runs the same in browsers, Node and Deno. |
-| [`@scrollodex/card`](packages/card) | The card renderer: sandboxed frames, spring physics, finishes, the Rolodex deck, verify-and-inline. No framework. |
+| [`@carte/canon`](packages/canon) | Sanitizer, minifier, canonical digest, contact validation, Ed25519 verification. Pure TypeScript; runs the same in browsers, Node and Deno. |
+| [`@carte/card`](packages/card) | The card renderer: sandboxed frames, spring physics, finishes, the Rolodex deck, verify-and-inline. No framework. |
 
 `canon` is tested against a corpus of more than 200 injection vectors, property-based fuzzing for idempotence, and golden canonical bytes.
 
@@ -49,5 +49,5 @@ Any coding agent (Claude Code, Codex, Cursor and the rest) can design your card.
 ## License
 
 - Code (`packages/`, `examples/`): Apache License 2.0. See [LICENSE](LICENSE).
-- The Scrollodex Card Format spec (`spec/`): CC-BY-4.0.
-- "Scrollodex" and its mark are not licensed. Implement the format freely, but please don't call your fork Scrollodex.
+- The Carte Card Format spec (`spec/`): CC-BY-4.0.
+- "Carte" and its mark are not licensed. Implement the format freely, but please don't call your fork Carte.
